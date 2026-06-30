@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+/* 最新版 Tailwind v4 的自訂顏色與字體做法 */
+@theme {
+  --color-oatmeal: #FBF9F6;
+  --color-walnut: #2C221E;
+  --color-taupe: #8C7E74;
+  --color-sage: #607264;
+  
+  --font-serif: "Noto Serif TC", "Playfair Display", serif;
+}
+/* 幫你的大標題加上一層極其細緻、範圍大但顏色很淡的深色煙霧暈染 */
+h1 {
+  text-shadow: 
+    0 4px 12px rgba(44, 34, 30, 0.15), 
+    0 0 24px rgba(44, 34, 30, 0.1);
+}
+
+/* 幫上方的小英文字也加上一點點陰影，確保它在白牆前也清晰可見 */
+p.text-sage {
+  text-shadow: 0 2px 8px rgba(44, 34, 30, 0.08);
+}
