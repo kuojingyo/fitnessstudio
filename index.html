@@ -98,7 +98,7 @@
       無標籤的私密低調
     </h4>
     <p class="text-sm md:text-base text-taupe font-sans tracking-wide leading-relaxed">
-      我們刻意隱去了喧囂的霓虹招牌，改以溫潤的暖燕麥色石材與大片落地磨砂玻璃，將這方安靜的蛻變領域，溫柔地隱匿於都市一隅。唯有懂得聆聽身體的妳，方能循光而至。
+      我們刻意隱去了喧囂的霓虹招牌，改以溫潤的暖燕麥色石材與沉穩木紋，將這方安靜的蛻變領域，溫柔地隱匿於都市一隅。唯有懂得聆聽身體的妳，方能循光而至。
     </p>
   </div>
   
@@ -122,5 +122,19 @@
 </section>
 
     <script type="module" src="/src/main.js"></script>
+  <!-- 右下角高級感懸浮預約膠囊 -->
+<!-- 視覺微調：使用 fixed 定位鎖定右下角，搭配 backdrop-blur 增加清透感，並加上細微的陰影與向上浮動特效 -->
+<div class="fixed bottom-8 right-8 z-50">
+  <a href="https://docs.google.com/forms/d/1jqC_JWnyCiF279fChUxvYy5KUzr_75GJiNZXN6-kivE/viewform?edit_requested=true" 
+     target="_blank" 
+     rel="noopener noreferrer" 
+     class="flex items-center space-x-3 bg-sage/90 backdrop-blur-md text-white pl-6 pr-5 py-3 rounded-full font-medium tracking-widest text-xs sm:text-sm hover:scale-105 active:scale-95 hover:bg-sage transition-all duration-300 shadow-[0_10px_30px_rgba(96,114,100,0.25)] border border-white/10 group">
+    <span>預約體驗</span>
+    <!-- 精細裝飾箭頭：滑鼠移入時會微微往右上方挑動 2px，暗示行動引導 -->
+    <svg class="w-4 h-4 transform transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+    </svg>
+  </a>
+</div>
   </body>
 </html>
