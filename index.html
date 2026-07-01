@@ -119,9 +119,24 @@
 </section>
 
     <script type="module" src="/src/main.js"></script>
+    <script>
+  window.addEventListener('scroll', () => {
+    const cta = document.getElementById('sticky-cta');
+    // 當往下捲動超過 300 像素（滑出首頁大卡片）時觸發
+    if (window.scrollY > 300) {
+      // 移除隱形，優雅向上浮現
+      cta.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+      cta.classList.add('opacity-100', 'translate-y-0');
+    } else {
+      // 恢復隱形，向下退場
+      cta.classList.remove('opacity-100', 'translate-y-0');
+      cta.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+    }
+  });
+</script>
   <!-- 右下角高級感懸浮預約膠囊 -->
 <!-- 視覺微調：使用 fixed 定位鎖定右下角，搭配 backdrop-blur 增加清透感，並加上細微的陰影與向上浮動特效 -->
-<div class="fixed bottom-8 right-8 z-50">
+<div id="sticky-cta" class="fixed bottom-8 right-8 z-50 opacity-0 pointer-events-none translate-y-4 transition-all duration-500 ease-out">
   <a href="https://docs.google.com/forms/d/1jqC_JWnyCiF279fChUxvYy5KUzr_75GJiNZXN6-kivE/viewform?edit_requested=true" 
      target="_blank" 
      rel="noopener noreferrer" 

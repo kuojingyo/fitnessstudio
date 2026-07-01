@@ -20,3 +20,16 @@ h1 {
 p.text-sage {
   text-shadow: 0 2px 8px rgba(44, 34, 30, 0.08);
 }
+
+/* 高級感全版滾動磁吸系統 */
+html {
+  scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
+}
+
+/* 讓首頁大圖區塊與品牌理念區塊具備磁吸對齊屬性 */
+.relative.min-h-screen, 
+section {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
