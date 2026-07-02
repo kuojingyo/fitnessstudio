@@ -9,8 +9,8 @@ function initScrollReveal() {
 
   function handleScrollReveal() {
     const windowHeight = window.innerHeight;
-    const startTrigger = windowHeight;
-    const endTrigger = windowHeight * 0.75;
+    const startTrigger = windowHeight * 0.7; // 開始淡入：進入螢幕 70% 高度（視窗中下部）
+    const endTrigger = windowHeight * 0.5;   // 淡入完成：到達螢幕 50% 高度（最佳觀賞的視窗正中央）
     const triggerRange = startTrigger - endTrigger;
 
     reveals.forEach(el => {
