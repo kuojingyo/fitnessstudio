@@ -9,7 +9,7 @@
   </head>
   <body class="text-walnut min-h-screen relative w-full bg-oatmeal">
 
-    <div class="relative min-h-screen bg-cover bg-center flex items-center justify-center overflow-hidden" style="background-image: url('/hero-gym.jpg');">
+    <div class="relative min-h-screen bg-cover bg-center flex items-center justify-center overflow-hidden" style="background-image: url('/NEW.jpg');">
       
       <div class="absolute inset-0 bg-oatmeal/45 mix-blend-normal"></div>
       <div class="absolute inset-0 bg-walnut/1 mix-blend-multiply"></div>
@@ -78,45 +78,77 @@
       <h3 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">隱於都市的靜謐空間</h3>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-y-14 md:gap-8 lg:gap-16 items-center">
+    <!-- 環境介紹文字 -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-center pb-8 border-b border-taupe/10">
+      <div class="md:col-span-5 text-left">
+        <h4 class="text-xl md:text-3xl font-serif text-walnut tracking-wide leading-snug">
+          無標籤的私密低調
+        </h4>
+      </div>
+      <div class="md:col-span-7 text-left">
+        <p class="text-sm md:text-base text-taupe font-sans tracking-wide leading-relaxed opacity-90">
+          我們刻意隱去了銳利線條，改以溫潤的暖燕麥色石材與大片木質調氛圍，將這方安靜的蛻變領域，溫柔地隱匿於都市一隅。
+        </p>
+      </div>
+    </div>
+
+    <!-- 空間藝廊 (4格卡片) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
       
-      <div class="md:col-span-7 space-y-4 group">
-        <div class="aspect-[3/4] md:aspect-[4/3] bg-walnut/5 rounded-[2rem] overflow-hidden relative border border-walnut/5 shadow-sm">
-          <img src="/studio-exterior.jpg" 
-               alt="RELIFE Fitness Exterior" 
+      <!-- 01 / 接待大廳 -->
+      <div class="space-y-4 group">
+        <div class="aspect-[4/3] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
+          <img src="/NEW.jpg" 
+               alt="RELIFE Fitness Lobby" 
                class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
           <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
         </div>
-        <p class="text-[10px] md:text-[11px] text-taupe font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
-          <span class="inline-block w-1.5 h-1.5 bg-sage rounded-full opacity-60"></span>
-          <span>01 / The Architectural Volume</span>
-        </p>
+        <div class="pl-1 text-left space-y-1">
+          <h5 class="text-sm font-serif text-walnut tracking-wider">接待大廳</h5>
+          <p class="text-[10px] text-taupe font-sans tracking-[0.2em] uppercase">01 / Reception Lobby</p>
+        </div>
       </div>
 
-      <div class="md:col-span-5 space-y-10 md:space-y-12 md:pl-8 lg:pl-12 text-left">
-        
-        <div class="space-y-4 px-2 md:px-0">
-          <h4 class="text-lg md:text-2xl font-serif text-walnut tracking-wide leading-snug">
-            無標籤的私密低調
-          </h4>
-          <p class="text-sm md:text-base text-taupe font-sans tracking-wide leading-relaxed opacity-90">
-            我們刻意隱去了銳利線條，改以溫潤的暖燕麥色石材與大片木質調氛圍，將這方安靜的蛻變領域，溫柔地隱匿於都市一隅。
-          </p>
+      <!-- 02 / 專屬訓練與物理放鬆區 -->
+      <div class="space-y-4 group">
+        <div class="aspect-[4/3] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
+          <img src="/BED.jpg" 
+               alt="RELIFE Fitness Training & Recovery" 
+               class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
+          <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
         </div>
-        
-        <div class="max-w-[80%] md:max-w-[85%] ml-auto md:ml-0 space-y-3 group">
-          <div class="aspect-[1/1] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
-            <img src="/studio-interior-detail.jpg" 
-                 alt="RELIFE Fitness Detail" 
-                 class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03] filter brightness-[0.97]" />
-            <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-          </div>
-          <p class="text-[10px] md:text-[11px] text-taupe/70 font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
-            <span class="inline-block w-1 h-1 bg-taupe/40 rounded-full"></span>
-            <span>02 / Changing room</span>
-          </p>
+        <div class="pl-1 text-left space-y-1">
+          <h5 class="text-sm font-serif text-walnut tracking-wider">專屬訓練與物理放鬆區</h5>
+          <p class="text-[10px] text-taupe font-sans tracking-[0.2em] uppercase">02 / Training & Recovery</p>
         </div>
+      </div>
 
+      <!-- 03 / 休憩交流區 -->
+      <div class="space-y-4 group">
+        <div class="aspect-[4/3] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
+          <img src="/REST.jpg" 
+               alt="RELIFE Fitness Lounge" 
+               class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
+          <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+        </div>
+        <div class="pl-1 text-left space-y-1">
+          <h5 class="text-sm font-serif text-walnut tracking-wider">休憩交流區</h5>
+          <p class="text-[10px] text-taupe font-sans tracking-[0.2em] uppercase">03 / Lounge Area</p>
+        </div>
+      </div>
+
+      <!-- 04 / 更衣空間 -->
+      <div class="space-y-4 group">
+        <div class="aspect-[4/3] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
+          <img src="/studio-interior-detail.jpg" 
+               alt="RELIFE Fitness Changing room" 
+               class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
+          <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+        </div>
+        <div class="pl-1 text-left space-y-1">
+          <h5 class="text-sm font-serif text-walnut tracking-wider">更衣空間</h5>
+          <p class="text-[10px] text-taupe font-sans tracking-[0.2em] uppercase">04 / Changing Room</p>
+        </div>
       </div>
 
     </div>
@@ -186,7 +218,6 @@
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div class="bg-oatmeal/40 border border-taupe/10 p-4 rounded-xl space-y-2">
                   <div class="flex items-center space-x-2">
-                    <span class="text-sage text-base">🌱</span>
                     <span class="text-walnut font-medium font-sans text-sm md:text-base">體態糾正與訓練方法</span>
                   </div>
                   <p class="text-xs text-taupe leading-relaxed font-sans">
@@ -195,7 +226,6 @@
                 </div>
                 <div class="bg-oatmeal/40 border border-taupe/10 p-4 rounded-xl space-y-2">
                   <div class="flex items-center space-x-2">
-                    <span class="text-sage text-base">☘️</span>
                     <span class="text-walnut font-medium font-sans text-sm md:text-base">功能性調整</span>
                   </div>
                   <p class="text-xs text-taupe leading-relaxed font-sans">
@@ -224,7 +254,7 @@
               <h2 class="text-2xl font-serif text-oatmeal tracking-wider">賦活運動</h2>
             </div>
             <p class="text-sm tracking-widest leading-relaxed max-w-sm text-oatmeal/60 font-sans font-light">
-              聆聽身體的私密低語，在沉靜中重塑優雅力量。我們提供個人化的專業健身與體態矯正指導，為您打造都市中的心靈與身心退變之所。
+              聆聽身體的私密低語，在沉靜中重塑優雅力量。我們提供個人化的專業健身與體態矯正指導，為您打造都市中的心靈與身心蛻變之所。
             </p>
           </div>
 
@@ -234,27 +264,18 @@
               <span class="inline-block w-1.5 h-1.5 bg-sage rounded-full"></span>
               <span>聯絡資訊 Contact</span>
             </h3>
-            <ul class="space-y-4 font-sans text-sm tracking-widest font-light text-oatmeal/75">
-              <li class="flex items-start space-x-3">
-                <span class="text-sage mt-0.5">📍</span>
-                <span>
-                  <strong class="block text-oatmeal font-normal mb-1">地址 Address</strong>
-                  高雄市楠梓區右昌街751巷21號
-                </span>
+            <ul class="space-y-6 font-sans text-sm tracking-widest font-light text-oatmeal/75">
+              <li class="space-y-1">
+                <span class="text-xs uppercase tracking-[0.2em] text-sage font-medium block">Address / 地址</span>
+                <span class="block text-oatmeal/90">高雄市楠梓區右昌街751巷21號</span>
               </li>
-              <li class="flex items-start space-x-3">
-                <span class="text-sage mt-0.5">📞</span>
-                <span>
-                  <strong class="block text-oatmeal font-normal mb-1">電話 Telephone</strong>
-                  (籌備中，待定)
-                </span>
+              <li class="space-y-1">
+                <span class="text-xs uppercase tracking-[0.2em] text-sage font-medium block">Telephone / 電話</span>
+                <span class="block text-oatmeal/90">(籌備中，待定)</span>
               </li>
-              <li class="flex items-start space-x-3">
-                <span class="text-sage mt-0.5">💬</span>
-                <span>
-                  <strong class="block text-oatmeal font-normal mb-1">官方 LINE</strong>
-                  <a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer" class="hover:text-sage transition-colors underline decoration-dotted underline-offset-4">@005zxfxx</a>
-                </span>
+              <li class="space-y-1">
+                <span class="text-xs uppercase tracking-[0.2em] text-sage font-medium block">Official Line / 官方 LINE</span>
+                <span class="block"><a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer" class="text-oatmeal/90 hover:text-sage transition-colors underline decoration-dotted underline-offset-4">@005zxfxx</a></span>
               </li>
             </ul>
           </div>
