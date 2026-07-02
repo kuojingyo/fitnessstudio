@@ -71,87 +71,92 @@
 </section>
     <!-- 3. 健身房外觀與空間區塊 (Studio Space Section) -->
       <section class="bg-oatmeal/60 py-24 md:py-36 px-6 md:px-8 border-t border-taupe/10">
-  <div class="reveal max-w-7xl mx-auto space-y-16 md:space-y-20">
+  <div class="reveal max-w-7xl mx-auto space-y-24 md:space-y-32">
     
     <div class="text-center space-y-3 md:space-y-4">
       <p class="text-sage font-medium tracking-[0.25em] text-[11px] sm:text-xs uppercase">The Sanctuary</p>
       <h3 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">隱於都市的靜謐空間</h3>
     </div>
 
-    <!-- 環境介紹文字 -->
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-center pb-8 border-b border-taupe/10">
-      <div class="md:col-span-5 text-left">
-        <h4 class="text-xl md:text-3xl font-serif text-walnut tracking-wide leading-snug">
-          無標籤的私密低調
-        </h4>
-      </div>
-      <div class="md:col-span-7 text-left">
-        <p class="text-sm md:text-base text-taupe font-sans tracking-wide leading-relaxed opacity-90">
-          我們刻意隱去了銳利線條，改以溫潤的暖燕麥色石材與大片木質調氛圍，將這方安靜的蛻變領域，溫柔地隱匿於都市一隅。
-        </p>
-      </div>
-    </div>
-
-    <!-- 空間藝廊 (4格卡片) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+    <!-- 空間第一排：大廳 & 更衣空間 (舊版排版) -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-y-14 md:gap-8 lg:gap-16 items-center">
       
-      <!-- 01 / 接待大廳 -->
-      <div class="space-y-4 group">
-        <div class="aspect-[4/3] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
+      <!-- 左側：接待大廳 (大圖) -->
+      <div class="md:col-span-7 space-y-4 group">
+        <div class="aspect-[4/3] bg-walnut/5 rounded-[2rem] overflow-hidden relative border border-walnut/5 shadow-sm">
           <img src="/NEW.jpg" 
                alt="RELIFE Fitness Lobby" 
                class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
           <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
         </div>
-        <div class="pl-1 text-left space-y-1">
-          <h5 class="text-sm font-serif text-walnut tracking-wider">接待大廳</h5>
-          <p class="text-[10px] text-taupe font-sans tracking-[0.2em] uppercase">01 / Reception Lobby</p>
+        <p class="text-[10px] md:text-[11px] text-taupe font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
+          <span class="inline-block w-1.5 h-1.5 bg-sage rounded-full opacity-60"></span>
+          <span>01 / Reception Lobby</span>
+        </p>
+      </div>
+
+      <!-- 右側：描述文字 & 更衣室 (方圖) -->
+      <div class="md:col-span-5 space-y-10 md:space-y-12 md:pl-8 lg:pl-12 text-left">
+        
+        <!-- 僅保留描述文字 -->
+        <div class="px-2 md:px-0">
+          <p class="text-sm md:text-base text-taupe font-sans tracking-wide leading-relaxed opacity-90">
+            我們刻意隱去了銳利線條，改以溫潤的暖燕麥色石材與大片木質調氛圍，將這方安靜的蛻變領域，溫柔地隱匿於都市一隅。
+          </p>
+        </div>
+        
+        <div class="max-w-[80%] md:max-w-[85%] ml-auto md:ml-0 space-y-3 group">
+          <div class="aspect-[1/1] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
+            <img src="/studio-interior-detail.jpg" 
+                 alt="RELIFE Fitness Changing room" 
+                 class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03] filter brightness-[0.97]" />
+            <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+          </div>
+          <p class="text-[10px] md:text-[11px] text-taupe/70 font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
+            <span class="inline-block w-1 h-1 bg-taupe/40 rounded-full"></span>
+            <span>04 / Changing Room</span>
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 空間第二排：休息室 & 訓練區 (交錯排版，往下滾動可見) -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-y-14 md:gap-8 lg:gap-16 items-center">
+      
+      <!-- 左側：休憩交流區 (方圖) -->
+      <div class="md:col-span-5 space-y-10 md:space-y-12 md:pr-8 lg:pr-12 text-left order-2 md:order-1">
+        <div class="max-w-[80%] md:max-w-[85%] mr-auto space-y-3 group">
+          <div class="aspect-[1/1] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
+            <img src="/REST.jpg" 
+                 alt="RELIFE Fitness Lounge" 
+                 class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03] filter brightness-[0.97]" />
+            <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+          </div>
+          <p class="text-[10px] md:text-[11px] text-taupe/70 font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
+            <span class="inline-block w-1 h-1 bg-taupe/40 rounded-full"></span>
+            <span>03 / Lounge Area</span>
+          </p>
         </div>
       </div>
 
-      <!-- 02 / 專屬訓練與物理放鬆區 -->
-      <div class="space-y-4 group">
-        <div class="aspect-[4/3] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
+      <!-- 右側：訓練與放鬆區 (大圖) -->
+      <div class="md:col-span-7 space-y-4 group order-1 md:order-2">
+        <div class="aspect-[4/3] bg-walnut/5 rounded-[2rem] overflow-hidden relative border border-walnut/5 shadow-sm">
           <img src="/BED.jpg" 
                alt="RELIFE Fitness Training & Recovery" 
                class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
           <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
         </div>
-        <div class="pl-1 text-left space-y-1">
-          <h5 class="text-sm font-serif text-walnut tracking-wider">專屬訓練與物理放鬆區</h5>
-          <p class="text-[10px] text-taupe font-sans tracking-[0.2em] uppercase">02 / Training & Recovery</p>
-        </div>
-      </div>
-
-      <!-- 03 / 休憩交流區 -->
-      <div class="space-y-4 group">
-        <div class="aspect-[4/3] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
-          <img src="/REST.jpg" 
-               alt="RELIFE Fitness Lounge" 
-               class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
-          <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-        </div>
-        <div class="pl-1 text-left space-y-1">
-          <h5 class="text-sm font-serif text-walnut tracking-wider">休憩交流區</h5>
-          <p class="text-[10px] text-taupe font-sans tracking-[0.2em] uppercase">03 / Lounge Area</p>
-        </div>
-      </div>
-
-      <!-- 04 / 更衣空間 -->
-      <div class="space-y-4 group">
-        <div class="aspect-[4/3] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
-          <img src="/studio-interior-detail.jpg" 
-               alt="RELIFE Fitness Changing room" 
-               class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
-          <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-        </div>
-        <div class="pl-1 text-left space-y-1">
-          <h5 class="text-sm font-serif text-walnut tracking-wider">更衣空間</h5>
-          <p class="text-[10px] text-taupe font-sans tracking-[0.2em] uppercase">04 / Changing Room</p>
-        </div>
+        <p class="text-[10px] md:text-[11px] text-taupe font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
+          <span class="inline-block w-1.5 h-1.5 bg-sage rounded-full opacity-60"></span>
+          <span>02 / Training & Recovery</span>
+        </p>
       </div>
 
     </div>
+
   </div>
 </section>
 
