@@ -26,6 +26,13 @@ html {
   scroll-behavior: smooth;
 }
 
+/* 針對大螢幕（1280px 以上，如 27 吋螢幕與桌上型顯示器）將整體字體與間距比例放大 20% */
+@media (min-width: 1280px) {
+  html {
+    font-size: 120%; /* 由於 Tailwind 的字體與間距絕大多數使用 rem 單位，將根節點字體設為 120% 會使整個版面等比例放大 20% */
+  }
+}
+
 /* 依據滾動觸發淡入與位移的元素 */
 .reveal {
   opacity: 0;
