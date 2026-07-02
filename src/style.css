@@ -26,9 +26,16 @@ html {
   scroll-behavior: smooth;
 }
 
-/* 依據滾動動態淡入與位移的元素 */
+/* 依據滾動觸發淡入與位移的元素 */
 .reveal {
   opacity: 0;
   transform: translateY(30px);
   will-change: opacity, transform;
+  transition: opacity 3s cubic-bezier(0.16, 1, 0.3, 1), transform 3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 觸發後的啟動狀態 */
+.reveal.active {
+  opacity: 1;
+  transform: translateY(0);
 }
