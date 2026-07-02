@@ -26,15 +26,9 @@ html {
   scroll-behavior: smooth;
 }
 
-/* 淡入與位移動畫初始狀態 */
+/* 依據滾動動態淡入與位移的元素 */
 .reveal {
   opacity: 0;
   transform: translateY(30px);
-  transition: opacity 3s cubic-bezier(0.16, 1, 0.3, 1), transform 3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* 元素進入畫面後的狀態 */
-.reveal.active {
-  opacity: 1;
-  transform: translateY(0);
+  will-change: opacity, transform;
 }
