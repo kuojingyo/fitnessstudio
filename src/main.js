@@ -1,16 +1,16 @@
 import './style.css';
 
-document.addEventListener('DOMContentLoaded', () => {
+console.log('Scroll reveal script loaded');
+
+function initScrollReveal() {
   const reveals = document.querySelectorAll('.reveal');
+  console.log(`Found ${reveals.length} scroll-reveal elements`);
+  if (reveals.length === 0) return;
 
   function handleScrollReveal() {
     const windowHeight = window.innerHeight;
-    
-    // 定義動畫開始與結束的觸發線：
-    // 當元素頂部到達螢幕底部（windowHeight）時開始淡入
-    // 當元素頂部到達螢幕 60% 高度（windowHeight * 0.6）時完成 100% 淡入
     const startTrigger = windowHeight;
-    const endTrigger = windowHeight * 0.6;
+    const endTrigger = windowHeight * 0.75;
     const triggerRange = startTrigger - endTrigger;
 
     reveals.forEach(el => {
@@ -41,4 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // 監聽滾動與視窗大小改變事件
   window.addEventListener('scroll', handleScrollReveal, { passive: true });
   window.addEventListener('resize', handleScrollReveal, { passive: true });
-});
+}
+
+// 確保在 DOM 可操作時立即執行
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initScrollReveal);
+} else {
+  initScrollReveal();
+}
