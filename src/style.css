@@ -21,15 +21,20 @@ p.text-sage {
   text-shadow: 0 2px 8px rgba(44, 34, 30, 0.08);
 }
 
-/* 高級感全版滾動磁吸系統 */
+/* 滾動平滑效果 */
 html {
   scroll-behavior: smooth;
-  scroll-snap-type: y mandatory;
 }
 
-/* 讓首頁大圖區塊與品牌理念區塊具備磁吸對齊屬性 */
-.relative.min-h-screen, 
-section {
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
+/* 淡入與位移動畫初始狀態 */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 元素進入畫面後的狀態 */
+.reveal.active {
+  opacity: 1;
+  transform: translateY(0);
 }
