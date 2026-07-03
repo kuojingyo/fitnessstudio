@@ -255,10 +255,10 @@
           <h3 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">交通定位</h3>
         </div>
 
-        <div class="w-full aspect-[16/9] md:aspect-[21/9] bg-walnut/5 rounded-[2rem] overflow-hidden border border-walnut/5 shadow-sm relative group">
+        <div class="w-full aspect-[16/9] md:aspect-[21/9] bg-walnut/5 rounded-[2rem] overflow-hidden border border-walnut/5 shadow-sm">
           <iframe 
             src="https://maps.google.com/maps?q=高雄市楠梓區右昌街751巷21號&hl=zh-TW&z=16&output=embed" 
-            class="w-full h-full border-0 transition-all duration-700 filter grayscale brightness-[0.98] contrast-[1.05] sepia-[0.1] group-hover:grayscale-0 group-hover:brightness-100 group-hover:sepia-0" 
+            class="w-full h-full border-0" 
             allowfullscreen="" 
             loading="lazy" 
             referrerpolicy="no-referrer-when-downgrade">
@@ -353,12 +353,12 @@
     }
   });
 
-  // 首次載入後3秒慢慢淡入側邊按鈕
+  // 首次載入後3秒慢慢淡入頂部導覽列
   setTimeout(() => {
     const sideBtn = document.getElementById('side-sticky-tab');
     if (sideBtn) {
-      sideBtn.classList.remove('opacity-0', 'pointer-events-none', '-translate-x-full');
-      sideBtn.classList.add('opacity-100', 'translate-x-0');
+      sideBtn.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-12');
+      sideBtn.classList.add('opacity-100', 'translate-y-0');
     }
   }, 3000);
 </script>
@@ -377,50 +377,50 @@
   </a>
 </div>
 
-  <!-- 側邊垂直導覽列 -->
+  <!-- 頂部浮動導覽列 -->
   <nav id="side-sticky-tab" 
-       class="fixed left-0 top-1/2 -translate-y-1/2 z-50 opacity-0 pointer-events-none -translate-x-full transition-all duration-[3000ms] ease-out bg-walnut/95 backdrop-blur-md py-6 px-3.5 rounded-r-2xl shadow-[4px_0_30px_rgba(43,34,27,0.25)] border-r border-t border-b border-white/10 flex flex-col items-center space-y-4 select-none w-14 sm:w-16">
+       class="fixed top-6 left-1/2 -translate-x-1/2 z-50 opacity-0 pointer-events-none -translate-y-12 transition-all duration-[2000ms] ease-out bg-walnut/95 backdrop-blur-md px-4 sm:px-8 py-3 rounded-full shadow-[0_10px_30px_rgba(43,34,27,0.25)] border border-white/10 flex flex-row items-center justify-between sm:justify-center space-x-2.5 sm:space-x-6 select-none w-[92%] sm:w-auto">
     
     <!-- 01 / 首頁 -->
-    <a href="#hero" class="flex flex-col items-center group cursor-pointer space-y-1 text-center w-full">
-      <span class="text-[9px] font-sans tracking-widest text-sage font-medium">01</span>
-      <span class="text-[10px] sm:text-xs font-serif text-oatmeal/75 group-hover:text-white transition-colors tracking-widest [writing-mode:vertical-rl] py-1 select-none">首頁</span>
+    <a href="#hero" class="group flex items-center text-[10px] sm:text-xs font-serif text-oatmeal/80 hover:text-white transition-colors tracking-widest select-none">
+      <span class="text-[8px] sm:text-[9px] font-sans text-sage font-medium mr-1">01</span>
+      <span>首頁</span>
     </a>
 
-    <!-- 分隔點 -->
-    <span class="w-1 h-1 bg-white/10 rounded-full"></span>
+    <!-- 分隔線 -->
+    <span class="w-[1px] h-3 bg-white/10"></span>
 
     <!-- 02 / 品牌理念 -->
-    <a href="#philosophy" class="flex flex-col items-center group cursor-pointer space-y-1 text-center w-full">
-      <span class="text-[9px] font-sans tracking-widest text-sage font-medium">02</span>
-      <span class="text-[10px] sm:text-xs font-serif text-oatmeal/75 group-hover:text-white transition-colors tracking-widest [writing-mode:vertical-rl] py-1 select-none">品牌理念</span>
+    <a href="#philosophy" class="group flex items-center text-[10px] sm:text-xs font-serif text-oatmeal/80 hover:text-white transition-colors tracking-widest select-none">
+      <span class="text-[8px] sm:text-[9px] font-sans text-sage font-medium mr-1">02</span>
+      <span>理念</span>
     </a>
 
-    <!-- 分隔點 -->
-    <span class="w-1 h-1 bg-white/10 rounded-full"></span>
+    <!-- 分隔線 -->
+    <span class="w-[1px] h-3 bg-white/10"></span>
 
     <!-- 03 / 空間概覽 -->
-    <a href="#sanctuary" class="flex flex-col items-center group cursor-pointer space-y-1 text-center w-full">
-      <span class="text-[9px] font-sans tracking-widest text-sage font-medium">03</span>
-      <span class="text-[10px] sm:text-xs font-serif text-oatmeal/75 group-hover:text-white transition-colors tracking-widest [writing-mode:vertical-rl] py-1 select-none">空間概覽</span>
+    <a href="#sanctuary" class="group flex items-center text-[10px] sm:text-xs font-serif text-oatmeal/80 hover:text-white transition-colors tracking-widest select-none">
+      <span class="text-[8px] sm:text-[9px] font-sans text-sage font-medium mr-1">03</span>
+      <span>空間</span>
     </a>
 
-    <!-- 分隔點 -->
-    <span class="w-1 h-1 bg-white/10 rounded-full"></span>
+    <!-- 分隔線 -->
+    <span class="w-[1px] h-3 bg-white/10"></span>
 
     <!-- 04 / 教練介紹 -->
-    <a href="#coach" class="flex flex-col items-center group cursor-pointer space-y-1 text-center w-full">
-      <span class="text-[9px] font-sans tracking-widest text-sage font-medium">04</span>
-      <span class="text-[10px] sm:text-xs font-serif text-oatmeal/75 group-hover:text-white transition-colors tracking-widest [writing-mode:vertical-rl] py-1 select-none">教練介紹</span>
+    <a href="#coach" class="group flex items-center text-[10px] sm:text-xs font-serif text-oatmeal/80 hover:text-white transition-colors tracking-widest select-none">
+      <span class="text-[8px] sm:text-[9px] font-sans text-sage font-medium mr-1">04</span>
+      <span>教練</span>
     </a>
 
-    <!-- 分隔點 -->
-    <span class="w-1 h-1 bg-white/10 rounded-full"></span>
+    <!-- 分隔線 -->
+    <span class="w-[1px] h-3 bg-white/10"></span>
 
     <!-- 05 / 賦活地址 -->
-    <a href="#location" class="flex flex-col items-center group cursor-pointer space-y-1 text-center w-full">
-      <span class="text-[9px] font-sans tracking-widest text-sage font-medium">05</span>
-      <span class="text-[10px] sm:text-xs font-serif text-oatmeal/75 group-hover:text-white transition-colors tracking-widest [writing-mode:vertical-rl] py-1 select-none">賦活地址</span>
+    <a href="#location" class="group flex items-center text-[10px] sm:text-xs font-serif text-oatmeal/80 hover:text-white transition-colors tracking-widest select-none">
+      <span class="text-[8px] sm:text-[9px] font-sans text-sage font-medium mr-1">05</span>
+      <span>地址</span>
     </a>
 
   </nav>
