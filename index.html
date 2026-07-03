@@ -91,7 +91,7 @@
         </div>
         <p class="text-[10px] md:text-[11px] text-taupe font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
           <span class="inline-block w-1.5 h-1.5 bg-sage rounded-full opacity-60"></span>
-          <span>01 / Reception Lobby</span>
+          <span>Reception Lobby</span>
         </p>
       </div>
 
@@ -114,7 +114,7 @@
           </div>
           <p class="text-[10px] md:text-[11px] text-taupe/70 font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
             <span class="inline-block w-1 h-1 bg-taupe/40 rounded-full"></span>
-            <span>02 / Changing Room</span>
+            <span>Changing Room</span>
           </p>
         </div>
 
@@ -136,7 +136,7 @@
           </div>
           <p class="text-[10px] md:text-[11px] text-taupe/70 font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
             <span class="inline-block w-1 h-1 bg-taupe/40 rounded-full"></span>
-            <span>03 / Lounge Area</span>
+            <span>Lounge Area</span>
           </p>
         </div>
       </div>
@@ -151,7 +151,7 @@
         </div>
         <p class="text-[10px] md:text-[11px] text-taupe font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
           <span class="inline-block w-1.5 h-1.5 bg-sage rounded-full opacity-60"></span>
-          <span>04 / Training & Recovery</span>
+          <span>Training & Recovery</span>
         </p>
       </div>
 
@@ -353,14 +353,14 @@
     }
   });
 
-  // 首次載入後10秒慢慢淡入側邊按鈕
+  // 首次載入後3秒慢慢淡入側邊按鈕
   setTimeout(() => {
     const sideBtn = document.getElementById('side-sticky-tab');
     if (sideBtn) {
       sideBtn.classList.remove('opacity-0', 'pointer-events-none', '-translate-x-full');
       sideBtn.classList.add('opacity-100', 'translate-x-0');
     }
-  }, 10000);
+  }, 3000);
 </script>
   <!-- 右下角高級感懸浮預約膠囊 -->
 <!-- 視覺微調：使用 fixed 定位鎖定右下角，搭配 backdrop-blur 增加清透感，並加上細微的陰影與向上浮動特效 -->
