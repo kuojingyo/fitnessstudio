@@ -8,6 +8,7 @@
   --color-sage: #607264;
   
   --font-serif: "Noto Serif TC", "Playfair Display", serif;
+  --font-brand: "字由源黑", "HelloFont Source Han Sans", "Source Han Sans TC", "思源黑體", sans-serif;
 }
 /* 幫你的大標題加上一層極其細緻、範圍大但顏色很淡的深色煙霧暈染 */
 h1 {
@@ -24,6 +25,7 @@ p.text-sage {
 /* 滾動平滑效果 */
 html {
   scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; /* 提升 iOS App WebView 滑動流暢度 */
 }
 
 /* 針對大螢幕（1280px 以上，如 27 吋螢幕與桌上型顯示器）將整體字體與間距比例放大 20% */
