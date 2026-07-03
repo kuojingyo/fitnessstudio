@@ -7,7 +7,28 @@
     <title>RELIFE Fitness</title>
     <link rel="stylesheet" href="/src/style.css">
   </head>
-  <body class="text-walnut min-h-screen relative w-full bg-oatmeal">
+  <body class="text-walnut min-h-screen relative w-full bg-oatmeal pt-16">
+
+    <!-- 頂部固定導覽列 (Pinned Top Header) -->
+    <header class="fixed top-0 left-0 w-full h-16 bg-walnut z-50 border-b border-white/5 shadow-sm flex items-center justify-between px-6 md:px-12 select-none">
+      <!-- 左側：品牌字樣 (僅在 md 及以上螢幕顯示，維持手機簡潔) -->
+      <a href="#hero" class="hidden md:block font-serif text-sm tracking-[0.3em] uppercase text-oatmeal hover:text-sage transition-colors">
+        RELIFE Fitness
+      </a>
+      
+      <!-- 右側/置中：五大導覽按鈕 (手機上置中) -->
+      <nav class="flex items-center justify-center space-x-1.5 sm:space-x-6 w-full md:w-auto">
+        <a href="#hero" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">首頁</a>
+        <span class="w-[1px] h-3 bg-white/10"></span>
+        <a href="#philosophy" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">理念</a>
+        <span class="w-[1px] h-3 bg-white/10"></span>
+        <a href="#sanctuary" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">空間</a>
+        <span class="w-[1px] h-3 bg-white/10"></span>
+        <a href="#coach" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">教練</a>
+        <span class="w-[1px] h-3 bg-white/10"></span>
+        <a href="#location" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">地址</a>
+      </nav>
+    </header>
 
     <div id="hero" class="relative min-h-screen bg-cover bg-center flex items-center justify-center overflow-hidden" style="background-image: url('/NEW.jpg');">
       
@@ -15,7 +36,7 @@
       <div class="absolute inset-0 bg-walnut/1 mix-blend-multiply"></div>
 
       <main class="relative z-10 max-w-7xl w-full mx-auto px-6 py-24 flex items-center justify-center text-center">
-        <div class="reveal bg-oatmeal/35 backdrop-blur-xl px-16 py-20 rounded-[2.5rem] max-w-4xl space-y-10 shadow-[0_20px_60px_rgba(44,34,30,0.05)] border border-white/20">
+        <div class="reveal bg-oatmeal/90 px-8 sm:px-16 py-12 sm:py-20 rounded-[2.5rem] max-w-4xl space-y-10 shadow-[0_20px_50px_rgba(44,34,30,0.08)] border border-white/20">
           
           <div class="space-y-6">
             <p class="text-sage font-medium tracking-[0.25em] text-sm uppercase">RELIFE, Live a Better Life</p>
@@ -42,7 +63,7 @@
       </main>
     </div>
 
-    <section id="philosophy" class="bg-oatmeal py-44 px-8 flex flex-col items-center justify-center text-center">
+    <section id="philosophy" class="scroll-mt-16 bg-oatmeal py-44 px-8 flex flex-col items-center justify-center text-center">
   <div class="reveal max-w-5xl mx-auto space-y-12">
 
     <div class="flex flex-col items-center space-y-6">
@@ -70,7 +91,7 @@
   </div>
 </section>
     <!-- 3. 健身房外觀與空間區塊 (Studio Space Section) -->
-      <section id="sanctuary" class="bg-oatmeal/60 py-24 md:py-36 px-6 md:px-8 border-t border-taupe/10">
+      <section id="sanctuary" class="scroll-mt-16 bg-oatmeal/60 py-24 md:py-36 px-6 md:px-8 border-t border-taupe/10">
   <div class="reveal max-w-7xl mx-auto space-y-24 md:space-y-32">
     
     <div class="text-center space-y-3 md:space-y-4">
@@ -161,7 +182,7 @@
 </section>
 
     <!-- 4. 教練介紹區塊 (Coach Section) -->
-    <section id="coach" class="bg-oatmeal py-24 md:py-36 px-6 md:px-8 border-t border-taupe/10">
+    <section id="coach" class="scroll-mt-16 bg-oatmeal py-24 md:py-36 px-6 md:px-8 border-t border-taupe/10">
       <div class="reveal max-w-7xl mx-auto space-y-16 md:space-y-20">
         
         <div class="text-center space-y-3 md:space-y-4">
@@ -247,7 +268,7 @@
     </section>
 
     <!-- 5. 交通定位區塊 (Location Section) -->
-    <section id="location" class="reveal bg-oatmeal/60 py-24 px-6 md:px-8 border-t border-taupe/10">
+    <section id="location" class="scroll-mt-16 reveal bg-oatmeal/60 py-24 px-6 md:px-8 border-t border-taupe/10">
       <div class="max-w-7xl mx-auto space-y-12">
         
         <div class="text-left space-y-3">
@@ -352,23 +373,14 @@
       cta.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
     }
   });
-
-  // 首次載入後3秒慢慢淡入頂部導覽列
-  setTimeout(() => {
-    const sideBtn = document.getElementById('side-sticky-tab');
-    if (sideBtn) {
-      sideBtn.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-12');
-      sideBtn.classList.add('opacity-100', 'translate-y-0');
-    }
-  }, 3000);
 </script>
   <!-- 右下角高級感懸浮預約膠囊 -->
-<!-- 視覺微調：使用 fixed 定位鎖定右下角，搭配 backdrop-blur 增加清透感，並加上細微的陰影與向上浮動特效 -->
+<!-- 視覺微調：使用 fixed 定位鎖定右下角，並加上細微的陰影與向上浮動特效 -->
 <div id="sticky-cta" class="fixed bottom-8 right-8 z-50 opacity-0 pointer-events-none translate-y-4 transition-all duration-500 ease-out">
   <a href="https://docs.google.com/forms/d/1jqC_JWnyCiF279fChUxvYy5KUzr_75GJiNZXN6-kivE/viewform?edit_requested=true" 
      target="_blank" 
      rel="noopener noreferrer" 
-     class="flex items-center space-x-3 bg-sage/90 backdrop-blur-md text-white pl-6 pr-5 py-3 rounded-full font-medium tracking-widest text-xs sm:text-sm hover:scale-105 active:scale-95 hover:bg-sage transition-all duration-300 shadow-[0_10px_30px_rgba(96,114,100,0.25)] border border-white/10 group">
+     class="flex items-center space-x-3 bg-sage text-white pl-6 pr-5 py-3 rounded-full font-medium tracking-widest text-xs sm:text-sm hover:scale-105 active:scale-95 hover:bg-sage/90 transition-all duration-300 shadow-[0_10px_30px_rgba(96,114,100,0.25)] border border-white/10 group">
     <span>預約體驗</span>
     <!-- 精細裝飾箭頭：滑鼠移入時會微微往右上方挑動 2px，暗示行動引導 -->
     <svg class="w-4 h-4 transform transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,48 +388,5 @@
     </svg>
   </a>
 </div>
-
-  <!-- 頂部浮動導覽列 -->
-  <nav id="side-sticky-tab" 
-       class="fixed top-6 left-1/2 -translate-x-1/2 z-50 opacity-0 pointer-events-none -translate-y-12 transition-all duration-[2000ms] ease-out bg-walnut/95 backdrop-blur-md px-6 sm:px-10 py-3.5 rounded-full shadow-[0_10px_35px_rgba(43,34,27,0.25)] border border-white/10 flex flex-row items-center justify-center space-x-3.5 sm:space-x-7 select-none w-auto max-w-[95%]">
-    
-    <!-- 01 / 首頁 -->
-    <a href="#hero" class="group flex items-center text-[11px] sm:text-xs font-serif text-oatmeal/80 hover:text-white transition-colors tracking-[0.2em] sm:tracking-[0.25em] select-none px-1.5 py-1">
-      <span>首頁</span>
-    </a>
-
-    <!-- 分隔線 -->
-    <span class="w-[1px] h-3 bg-white/10"></span>
-
-    <!-- 02 / 品牌理念 -->
-    <a href="#philosophy" class="group flex items-center text-[11px] sm:text-xs font-serif text-oatmeal/80 hover:text-white transition-colors tracking-[0.2em] sm:tracking-[0.25em] select-none px-1.5 py-1">
-      <span>理念</span>
-    </a>
-
-    <!-- 分隔線 -->
-    <span class="w-[1px] h-3 bg-white/10"></span>
-
-    <!-- 03 / 空間概覽 -->
-    <a href="#sanctuary" class="group flex items-center text-[11px] sm:text-xs font-serif text-oatmeal/80 hover:text-white transition-colors tracking-[0.2em] sm:tracking-[0.25em] select-none px-1.5 py-1">
-      <span>空間</span>
-    </a>
-
-    <!-- 分隔線 -->
-    <span class="w-[1px] h-3 bg-white/10"></span>
-
-    <!-- 04 / 教練介紹 -->
-    <a href="#coach" class="group flex items-center text-[11px] sm:text-xs font-serif text-oatmeal/80 hover:text-white transition-colors tracking-[0.2em] sm:tracking-[0.25em] select-none px-1.5 py-1">
-      <span>教練</span>
-    </a>
-
-    <!-- 分隔線 -->
-    <span class="w-[1px] h-3 bg-white/10"></span>
-
-    <!-- 05 / 賦活地址 -->
-    <a href="#location" class="group flex items-center text-[11px] sm:text-xs font-serif text-oatmeal/80 hover:text-white transition-colors tracking-[0.2em] sm:tracking-[0.25em] select-none px-1.5 py-1">
-      <span>地址</span>
-    </a>
-
-  </nav>
   </body>
 </html>
