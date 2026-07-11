@@ -50,3 +50,44 @@ html {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* === 小秘書優化：提升深色 footer 上的社群圖標對比度 === */
+footer a[href*="lin.ee"],
+footer a[href*="instagram.com"],
+footer a[href*="threads.net"],
+footer a[href*="facebook.com"] {
+  color: rgba(252, 250, 247, 0.75);
+}
+
+footer a[href*="lin.ee"]:hover,
+footer a[href*="instagram.com"]:hover,
+footer a[href*="threads.net"]:hover,
+footer a[href*="facebook.com"]:hover {
+  color: #C3D3C7;
+}
+
+/* === 小秘書優化：手機端社群圖標放大，提升觸控友善度 === */
+@media (max-width: 768px) {
+  footer a[href*="lin.ee"],
+  footer a[href*="instagram.com"],
+  footer a[href*="threads.net"],
+  footer a[href*="facebook.com"] {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  footer a[href*="lin.ee"] svg,
+  footer a[href*="instagram.com"] svg,
+  footer a[href*="threads.net"] svg,
+  footer a[href*="facebook.com"] svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+/* === 小秘書優化：sticky CTA 在手機端微調位置 === */
+@media (max-width: 640px) {
+  #sticky-cta {
+    bottom: 1.5rem;
+    right: 1.5rem;
+  }
+}

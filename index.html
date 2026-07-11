@@ -1,10 +1,31 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RELIFE Fitness</title>
+    <meta name="theme-color" content="#1C1411" />
+    <meta name="description" content="RELIFE Fitness 賦活運動 — 高雄楠梓右昌的私密一對一健身空間。由 NASM-CPT / NASM-CES 雙認證教練史昕銓親自帶領，提供體態矯正、功能性訓練與客製化課程。新手、女性、銀髮族友善。" />
+    <meta name="author" content="RELIFE Fitness" />
+    <meta name="keywords" content="高雄健身房,楠梓健身房,右昌健身房,一對一教練,體態矯正,NASM認證,私人健身,RELIFE Fitness,賦活運動" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta property="og:site_name" content="RELIFE Fitness" />
+    <meta property="og:title" content="RELIFE Fitness 賦活運動 — 高雄楠梓私人健身空間" />
+    <meta property="og:description" content="賦活運動，賦予生活的新定義。NASM 雙認證教練一對一指導，體態矯正與功能性訓練。新手、女性、銀髮族友善。" />
+    <meta property="og:image" content="https://www.relifefitness.com/NEW.jpg" />
+    <meta property="og:url" content="https://www.relifefitness.com/" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RELIFE Fitness 賦活運動" />
+    <meta name="twitter:description" content="高雄楠梓右昌的私密一對一健身空間。NASM 雙認證教練親自帶領。" />
+    <meta name="twitter:image" content="https://www.relifefitness.com/NEW.jpg" />
+
+    <title>RELIFE Fitness 賦活運動 | 高雄楠梓一對一私人健身</title>
     <link rel="stylesheet" href="/src/style.css">
   </head>
   <body class="text-walnut min-h-screen relative w-full bg-oatmeal pt-16">
@@ -17,7 +38,7 @@
       </a>
       
       <!-- 右側/置中：五大導覽按鈕 (手機上置中) -->
-      <nav class="flex items-center justify-center space-x-1.5 sm:space-x-6 w-full md:w-auto">
+      <nav class="flex items-center justify-center space-x-1.5 sm:space-x-6 w-full md:w-auto" aria-label="主導覽列">
         <a href="#hero" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">首頁</a>
         <span class="w-[1px] h-3 bg-white/10"></span>
         <a href="#philosophy" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">理念</a>
@@ -54,7 +75,7 @@
   <a href="https://docs.google.com/forms/d/1jqC_JWnyCiF279fChUxvYy5KUzr_75GJiNZXN6-kivE/viewform?edit_requested=true" 
      target="_blank" 
      rel="noopener noreferrer" 
-     class="inline-block bg-sage text-white px-14 py-4 rounded-full font-medium tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-sage/20">
+     class="inline-block bg-sage text-white px-14 py-4 rounded-full font-medium tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-sage/20" aria-label="預約專屬體驗">
     預約專屬體驗
   </a>
 </div>
@@ -106,8 +127,9 @@
       <div class="md:col-span-7 space-y-4 group">
         <div class="aspect-[4/3] bg-walnut/5 rounded-[2rem] overflow-hidden relative border border-walnut/5 shadow-sm">
           <img src="/NEW.jpg" 
-               alt="RELIFE Fitness Lobby" 
-               class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
+                         alt="RELIFE Fitness 接待大廳" 
+                         loading="lazy"
+                         class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
           <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
         </div>
         <p class="text-[10px] md:text-[11px] text-taupe font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
@@ -129,7 +151,7 @@
         <div class="max-w-[80%] md:max-w-[85%] ml-auto md:ml-0 space-y-3 group">
           <div class="aspect-[1/1] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
             <img src="/studio-interior-detail.jpg" 
-                 alt="RELIFE Fitness Changing room" 
+                 alt="RELIFE Fitness 更衣空間" loading="lazy" 
                  class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03] filter brightness-[0.97]" />
             <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
           </div>
@@ -151,7 +173,7 @@
         <div class="max-w-[80%] md:max-w-[85%] mr-auto space-y-3 group">
           <div class="aspect-[1/1] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
             <img src="/REST.jpg" 
-                 alt="RELIFE Fitness Lounge" 
+                 alt="RELIFE Fitness 休憩交流區" loading="lazy" 
                  class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03] filter brightness-[0.97]" />
             <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
           </div>
@@ -166,7 +188,7 @@
       <div class="md:col-span-7 space-y-4 group order-1 md:order-2">
         <div class="aspect-[4/3] bg-walnut/5 rounded-[2rem] overflow-hidden relative border border-walnut/5 shadow-sm">
           <img src="/BED.jpg" 
-               alt="RELIFE Fitness Training & Recovery" 
+               alt="RELIFE Fitness 訓練與放鬆區" loading="lazy" 
                class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
           <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
         </div>
@@ -196,7 +218,7 @@
           <div class="md:col-span-5 space-y-4 group">
             <div class="aspect-[3/4] bg-walnut/5 rounded-[2rem] overflow-hidden relative border border-walnut/5 shadow-sm">
               <img src="/coach-shi.jpg" 
-                   alt="Coach 史昕銓" 
+                   alt="RELIFE Fitness Head Coach 史昕銓" loading="lazy" 
                    class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
               <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
             </div>
@@ -306,7 +328,7 @@
             </p>
             
             <!-- 統一風格社群圖標列 (LINE, IG, Threads, FB) -->
-            <div class="flex items-center space-x-3.5 pt-2">
+            <div class="flex items-center space-x-3.5 pt-2" aria-label="社群媒體連結">
               <!-- LINE -->
               <a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer" 
                  class="w-9 h-9 rounded-full border border-oatmeal/15 flex items-center justify-center text-oatmeal/60 hover:text-sage-light hover:border-sage-light hover:bg-white/5 transition-all duration-300 hover:scale-105" 
@@ -372,7 +394,7 @@
             </h3>
             <a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer" class="block bg-white p-3 rounded-2xl shadow-lg border border-white/10 max-w-[160px] group transition-transform duration-500 hover:scale-[1.03]">
               <img src="/line-qr.png" 
-                   alt="RELIFE Official LINE QR Code" 
+                   alt="RELIFE Fitness 官方 LINE QR Code" loading="lazy" 
                    class="w-full h-full object-cover rounded-xl" />
             </a>
             <p class="text-[11px] text-oatmeal/40 font-sans tracking-widest">
@@ -386,8 +408,8 @@
         <div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-oatmeal/40 font-sans tracking-widest font-light">
           <p>© 2026 RELIFE Fitness. All Rights reserved.</p>
           <div class="flex space-x-6">
-            <a href="#" class="hover:text-sage transition-colors">隱私權政策</a>
-            <a href="#" class="hover:text-sage transition-colors">服務條款</a>
+            <a href="#" class="hover:text-sage transition-colors" aria-label="隱私權政策（即將推出）">隱私權政策</a>
+                        <a href="#" class="hover:text-sage transition-colors" aria-label="服務條款（即將推出）">服務條款</a>
           </div>
         </div>
 
@@ -416,7 +438,7 @@
   <a href="https://docs.google.com/forms/d/1jqC_JWnyCiF279fChUxvYy5KUzr_75GJiNZXN6-kivE/viewform?edit_requested=true" 
      target="_blank" 
      rel="noopener noreferrer" 
-     class="flex items-center space-x-3 bg-sage text-white pl-6 pr-5 py-3 rounded-full font-medium tracking-widest text-xs sm:text-sm hover:scale-105 active:scale-95 hover:bg-sage/90 transition-all duration-300 shadow-[0_10px_30px_rgba(96,114,100,0.25)] border border-white/10 group">
+     class="flex items-center space-x-3 bg-sage text-white pl-6 pr-5 py-3 rounded-full font-medium tracking-widest text-xs sm:text-sm hover:scale-105 active:scale-95 hover:bg-sage/90 transition-all duration-300 shadow-[0_10px_30px_rgba(96,114,100,0.25)] border border-white/10 group" aria-label="預約體驗">
     <span>預約體驗</span>
     <!-- 精細裝飾箭頭：滑鼠移入時會微微往右上方挑動 2px，暗示行動引導 -->
     <svg class="w-4 h-4 transform transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
