@@ -313,10 +313,11 @@
       </div>
 
       <!-- Month View -->
-      <div id="month-view">
-        <div class="month-grid" id="month-weekdays"></div>
-        <div class="month-grid" id="month-grid"></div>
-      </div>
+            <div id="month-view">
+              <div class="month-grid" id="month-weekdays"></div>
+              <div class="month-grid" id="month-grid"></div>
+              <div id="coach-summary" style="margin-top:1rem;padding:0.8rem;background:var(--white);border:1px solid var(--border);border-radius:8px;font-size:0.85rem"></div>
+            </div>
     </div>
 
     <!-- Modal -->
@@ -706,8 +707,33 @@
         const remaining = (7 - (totalCells % 7)) % 7;
         for (let i = 1; i <= remaining; i++) {
           grid.appendChild(makeMonthDay(new Date(year, month+1, i), true));
-        }
-      }
+                  }
+                  renderCoachSummary(year, month);
+                }
+
+                function renderCoachSummary(year, month) {
+                  const summary = document.getElementById('coach-summary');
+                  const counts = {};
+                  // 遍歷本月每一天
+                  const lastDay = new Date(year, month+1, 0);
+                  for (let d = 1; d <= lastDay.getDate(); d++) {
+                    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                    const bookings = getBookingsForDate(dateStr);
+                    for (const b of bookings) {
+                      // 排除「其他」和「團課」
+                      if (b.coach === 'B' || b.coach === 'C') continue;
+                      const name = coachName(b.coach);
+                      counts[name] = (counts[name] || 0) + 1;
+                    }
+                  }
+                  const entries = Object.entries(counts);
+                  if (entries.length === 0) {
+                    summary.innerHTML = '<span style="color:var(--text-light)">本月尚無教練預約</span>';
+                  } else {
+                    summary.innerHTML = '<strong>📊 本月教練堂數</strong><br>' +
+                      entries.map(([name, count]) => `${name}: ${count} 堂`).join('&nbsp;&nbsp;|&nbsp;&nbsp;');
+                  }
+                }
 
       function makeMonthDay(d, otherMonth) {
               const dateStr = fmtDate(d);
