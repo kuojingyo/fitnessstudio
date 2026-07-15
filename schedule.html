@@ -218,7 +218,7 @@
       }
       .coach-btn:hover { border-color: var(--sage); }
       .coach-btn.selected {
-              color: #1C1411; border-color: transparent; transform: scale(1.05);
+              color: var(--white); border-color: transparent; transform: scale(1.05);
             }
       /* 教練顏色（在 coach-btn 之後定義才能正確覆蓋） */
       .bg-A { background: var(--c-A); }.bg-B { background: var(--c-B); }
@@ -810,7 +810,7 @@
                 btn.className = `coach-btn bg-${c}`;
                 btn.textContent = coachName(c);
                           const checkSelected = isEdit ? () => editingCoach === c : () => selectedCoach === c;
-                          btn.style.color = checkSelected() ? '#1C1411' : '#FFFFFF';
+                          btn.style.color = checkSelected() ? '#FFFFFF' : '#1C1411';
                           if (checkSelected()) btn.classList.add('selected');
           btn.onclick = () => {
                                 if (isEdit) {
