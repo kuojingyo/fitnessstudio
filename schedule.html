@@ -339,11 +339,11 @@
                                 <button class="duration-btn" data-dur="90" onclick="selectDuration(90)">90 分鐘</button>
                               </div>
                               <select id="admin-duration" style="display:none;width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;margin-bottom:0.5rem" onchange="selectedDuration=parseInt(this.value)">
-                                <option value="30">30 分鐘</option><option value="60">60 分鐘</option>
-                                <option value="90" selected>90 分鐘</option><option value="120">120 分鐘</option>
-                                <option value="150">150 分鐘</option><option value="180">180 分鐘</option>
-                                <option value="210">210 分鐘</option><option value="240">240 分鐘</option>
-                              </select>
+                                                              <option value="30">0.5 小時</option><option value="60">1 小時</option>
+                                                              <option value="90" selected>1.5 小時</option><option value="120">2 小時</option>
+                                                              <option value="150">2.5 小時</option><option value="180">3 小時</option>
+                                                              <option value="210">3.5 小時</option><option value="240">4 小時</option>
+                                                            </select>
                                         <label for="remark-input">📝 備註</label>
                                         <input type="text" id="remark-input" placeholder="選填，例如：體驗課、調整姿勢" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;margin-bottom:0.5rem">
                                         <label for="pwd-create">🔐 編輯密碼</label>
@@ -364,11 +364,11 @@
                                           <button class="duration-btn" data-dur="90" onclick="selectDurationEdit(90)">90 分鐘</button>
                                         </div>
                                         <select id="admin-duration-edit" style="display:none;width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;margin-bottom:0.5rem" onchange="editingDuration=parseInt(this.value)">
-                                          <option value="30">30 分鐘</option><option value="60">60 分鐘</option>
-                                          <option value="90">90 分鐘</option><option value="120">120 分鐘</option>
-                                          <option value="150">150 分鐘</option><option value="180">180 分鐘</option>
-                                          <option value="210">210 分鐘</option><option value="240">240 分鐘</option>
-                                        </select>
+                                                                                  <option value="30">0.5 小時</option><option value="60">1 小時</option>
+                                                                                  <option value="90">1.5 小時</option><option value="120">2 小時</option>
+                                                                                  <option value="150">2.5 小時</option><option value="180">3 小時</option>
+                                                                                  <option value="210">3.5 小時</option><option value="240">4 小時</option>
+                                                                                </select>
                     <label for="remark-edit">📝 備註</label>
                     <input type="text" id="remark-edit" placeholder="選填" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;margin-bottom:0.5rem">
                     <label for="pwd-edit">🔐 編輯密碼</label>
