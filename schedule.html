@@ -385,7 +385,16 @@
 
       // ====== CONSTANTS ======
       const SPACES = 8;
-      const COACHES = ['A','B','C','D','E','F','G','H','I','J'];
+
+      // 🏷️ 教練名單 — 修改這裡即可更改顯示名稱！
+      //    格式：'代號': '顯示名稱'，未指派的保留代號即可
+      const COACH_NAMES = {
+        'A': '史昕銓',
+        'B': 'B', 'C': 'C', 'D': 'D', 'E': 'E',
+        'F': 'F', 'G': 'G', 'H': 'H', 'I': 'I', 'J': 'J',
+      };
+      const COACHES = Object.keys(COACH_NAMES);
+      function coachName(code) { return COACH_NAMES[code] || code; }
       const OPEN_HOUR = 9;          // 09:00
       const CLOSE_HOUR = 22;         // 22:00
       const SLOT_MINUTES = 15;
@@ -555,7 +564,7 @@
               if (i === bStartSlot) {
                 // 第一格顯示教練代號
                 td.className = `slot booked bg-${b.coach}`;
-                td.textContent = b.coach;
+                td.textContent = coachName(b.coach);
                 td.onclick = () => openEditModal(b, dateStr);
                 td.rowSpan = durationToSlots(b.duration);
               } else {
@@ -673,7 +682,7 @@
         COACHES.forEach(c => {
           const btn = document.createElement('button');
           btn.className = `coach-btn bg-${c}`;
-          btn.textContent = c;
+          btn.textContent = coachName(c);
           btn.style.color = '#FFFFFF';
           const checkSelected = isEdit ? () => editingCoach === c : () => selectedCoach === c;
           if (checkSelected()) btn.classList.add('selected');
@@ -736,7 +745,7 @@
         }
 
         closeModal();
-        showToast(`✅ 預約成功：空間${space} ${booking.time} 教練${selectedCoach}`);
+        showToast(`✅ 預約成功：空間${space} ${booking.time} 教練${coachName(selectedCoach)}`);
         if (window.USE_FALLBACK) { bookings = bookmarks; }
         switchView(currentView);
       }
@@ -750,11 +759,11 @@
 
         document.getElementById('modal-title').textContent = '修改 / 取消預約';
         document.getElementById('modal-sub').textContent =
-          `空間 ${booking.space} · ${booking.time} · 教練 ${booking.coach} · ${booking.duration} 分鐘`;
+          `空間 ${booking.space} · ${booking.time} · 教練 ${coachName(booking.coach)} · ${booking.duration} 分鐘`;
         document.getElementById('modal-create').style.display = 'none';
         document.getElementById('modal-edit').style.display = 'block';
         document.getElementById('booking-info').innerHTML =
-          `📅 ${fmtDateCN(new Date(dateStr))}<br>🏠 空間 ${booking.space} · ⏰ ${booking.time}<br>👤 教練 ${booking.coach} · ⏱️ ${booking.duration} 分鐘`;
+          `📅 ${fmtDateCN(new Date(dateStr))}<br>🏠 空間 ${booking.space} · ⏰ ${booking.time}<br>👤 教練 ${coachName(booking.coach)} · ⏱️ ${booking.duration} 分鐘`;
         renderCoachGrid('coach-grid-edit', true);
         selectDurationEdit(booking.duration);
         document.getElementById('modal-overlay').classList.add('active');
@@ -788,7 +797,7 @@
         }
 
         closeModal();
-        showToast(`✅ 已修改：教練${editingCoach} ${editingDuration}分鐘`);
+        showToast(`✅ 已修改：教練${coachName(editingCoach)} ${editingDuration}分鐘`);
         if (window.USE_FALLBACK) { bookings = bookmarks; }
         switchView(currentView);
       }
