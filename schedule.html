@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1C1411" />
+    <title>RELIFE Fitness 排課系統</title>
+    <style>
+      /* ===== Reset & Base ===== */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      :root {
+        --walnut: #1C1411;
+        --oatmeal: #F5F0E8;
+        --sage: #8B9D83;
+        --sage-light: #B5C4A8;
+        --sage-dark: #6B7D63;
+        --text: #2C2520;
+        --text-light: #6B6258;
+        --border: #D9D0C5;
+        --white: #FFFFFF;
+        --accent: #C97B4A;
+        --accent-light: #E8A87C;
+        --danger: #C75450;
+        --danger-light: #F5DCDC;
+
+        /* 教練顏色 A-J */
+        --c-A: #E57373; --c-B: #BA68C8; --c-C: #64B5F6; --c-D: #4DB6AC;
+        --c-E: #81C784; --c-F: #FFD54F; --c-G: #FFB74D; --c-H: #A1887F;
+        --c-I: #90A4AE; --c-J: #F06292;
+      }
+      body {
+        font-family: -apple-system, "Microsoft JhengHei", "PingFang TC", sans-serif;
+        background: var(--oatmeal);
+        color: var(--text);
+        min-height: 100vh;
+        padding-top: 60px;
+      }
+
+      /* ===== Header ===== */
+      header {
+        position: fixed; top: 0; left: 0; right: 0; height: 60px;
+        background: var(--walnut);
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 1.5rem; z-index: 100;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      }
+      header .logo {
+        font-size: 0.85rem; letter-spacing: 0.25em; color: var(--oatmeal);
+        font-weight: 600; text-transform: uppercase;
+      }
+      header .nav { display: flex; gap: 0.5rem; }
+      header .nav button {
+        background: none; border: 1px solid rgba(245,240,232,0.2);
+        color: var(--oatmeal); font-size: 0.8rem; padding: 0.4rem 1rem;
+        border-radius: 6px; cursor: pointer; transition: all 0.2s;
+        font-family: inherit;
+      }
+      header .nav button:hover { background: rgba(245,240,232,0.1); }
+      header .nav button.active {
+        background: var(--sage); color: var(--walnut); border-color: var(--sage);
+        font-weight: 600;
+      }
+
+      /* ===== Main Container ===== */
+      #app { max-width: 1400px; margin: 0 auto; padding: 1rem; }
+
+      /* ===== Date Navigation ===== */
+      .date-nav {
+        display: flex; align-items: center; justify-content: center;
+        gap: 1rem; margin-bottom: 1.2rem; flex-wrap: wrap;
+      }
+      .date-nav button {
+        background: var(--white); border: 1px solid var(--border);
+        color: var(--text); font-size: 0.9rem; padding: 0.5rem 1.2rem;
+        border-radius: 8px; cursor: pointer; transition: all 0.2s;
+        font-family: inherit;
+      }
+      .date-nav button:hover { background: var(--sage-light); color: var(--walnut); }
+      .date-nav .current-date {
+        font-size: 1.15rem; font-weight: 600; color: var(--text);
+        min-width: 200px; text-align: center;
+      }
+      .date-nav .today-btn {
+        background: var(--sage); color: var(--white); border-color: var(--sage);
+        font-size: 0.8rem; padding: 0.4rem 0.9rem;
+      }
+      .date-nav .today-btn:hover { background: var(--sage-dark); }
+
+      /* ===== Day View ===== */
+      #day-view { overflow-x: auto; }
+      .day-table {
+        border-collapse: separate; border-spacing: 0;
+        width: 100%; min-width: 900px;
+        font-size: 0.75rem;
+      }
+      .day-table th, .day-table td {
+        border-bottom: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+        text-align: center;
+      }
+      .day-table th {
+        background: var(--walnut); color: var(--oatmeal);
+        padding: 0.5rem 0.3rem; font-weight: 500; font-size: 0.72rem;
+        position: sticky; top: 60px; z-index: 10;
+      }
+      .day-table th.time-col { min-width: 65px; }
+      .day-table th.space-col { min-width: 90px; }
+      .day-table td.time-col {
+        background: var(--white); font-weight: 500; color: var(--text-light);
+        font-size: 0.68rem; position: sticky; left: 0; z-index: 5;
+        min-width: 65px;
+      }
+      .day-table tr.hour-row td.time-col { font-weight: 600; color: var(--text); }
+      .day-table td.slot {
+        padding: 0; height: 28px; cursor: pointer; position: relative;
+      }
+      .day-table td.slot.empty { background: #FAFAF7; }
+      .day-table td.slot.empty:hover { background: var(--sage-light); }
+      .day-table td.slot.booked {
+        color: var(--white); font-weight: 600; font-size: 0.7rem;
+      }
+      .day-table td.slot.booked:hover { filter: brightness(1.1); }
+      .day-table td.slot.continuation {
+        opacity: 0.5; cursor: default;
+      }
+      /* 目前時間指示線 */
+      .day-table td.current-time {
+        box-shadow: inset 0 -2px 0 var(--accent);
+      }
+
+      /* 教練顏色 */
+      .bg-A { background: var(--c-A); } .bg-B { background: var(--c-B); }
+      .bg-C { background: var(--c-C); } .bg-D { background: var(--c-D); }
+      .bg-E { background: var(--c-E); } .bg-F { background: var(--c-F); }
+      .bg-G { background: var(--c-G); } .bg-H { background: var(--c-H); }
+      .bg-I { background: var(--c-I); } .bg-J { background: var(--c-J); }
+
+      /* ===== Month View ===== */
+      #month-view { display: none; }
+      .month-grid {
+        display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+      }
+      .month-weekday {
+        text-align: center; font-size: 0.75rem; font-weight: 600;
+        color: var(--text-light); padding: 0.3rem 0;
+      }
+      .month-day {
+        background: var(--white); border: 1px solid var(--border);
+        border-radius: 6px; padding: 0.4rem; min-height: 90px;
+        cursor: pointer; transition: all 0.2s; position: relative;
+      }
+      .month-day:hover { border-color: var(--sage); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+      .month-day.other-month { opacity: 0.35; background: #EDE9E3; }
+      .month-day.today { border-color: var(--accent); border-width: 2px; }
+      .month-day.full { background: var(--danger-light); border-color: var(--danger); }
+      .month-day .day-num {
+        font-size: 0.95rem; font-weight: 600; margin-bottom: 0.2rem;
+      }
+      .month-day .booking-summary {
+        font-size: 0.62rem; line-height: 1.3; color: var(--text-light);
+      }
+      .month-day .full-tag {
+        display: inline-block; font-size: 0.6rem; font-weight: 600;
+        color: var(--danger); margin-top: 2px;
+      }
+      .month-day .free-tag {
+        display: inline-block; font-size: 0.6rem; font-weight: 600;
+        color: var(--sage-dark); margin-top: 2px;
+      }
+
+      /* ===== Modal ===== */
+      .modal-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(28,20,17,0.55); z-index: 200;
+        display: none; align-items: center; justify-content: center;
+      }
+      .modal-overlay.active { display: flex; }
+      .modal {
+        background: var(--white); border-radius: 12px; padding: 1.8rem;
+        width: 90%; max-width: 380px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      }
+      .modal h2 {
+        font-size: 1.1rem; margin-bottom: 0.3rem; color: var(--text);
+      }
+      .modal .modal-sub {
+        font-size: 0.8rem; color: var(--text-light); margin-bottom: 1.2rem;
+      }
+      .modal label {
+        display: block; font-size: 0.82rem; font-weight: 500;
+        margin-bottom: 0.4rem; margin-top: 0.8rem; color: var(--text);
+      }
+      .modal select, .modal button.action-btn {
+        width: 100%; padding: 0.55rem; font-size: 0.9rem;
+        border: 1px solid var(--border); border-radius: 8px;
+        font-family: inherit; background: var(--white); color: var(--text);
+      }
+      .modal select:focus { outline: none; border-color: var(--sage); }
+      .coach-grid {
+        display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+        margin-bottom: 0.5rem;
+      }
+      .coach-btn {
+        padding: 0.5rem 0; border: 2px solid var(--border); border-radius: 8px;
+        font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+        background: var(--white); color: var(--text); font-family: inherit;
+      }
+      .coach-btn:hover { border-color: var(--sage); }
+      .coach-btn.selected {
+        color: var(--white); border-color: transparent; transform: scale(1.05);
+      }
+      .duration-row { display: flex; gap: 8px; margin-bottom: 0.5rem; }
+      .duration-btn {
+        flex: 1; padding: 0.5rem; border: 2px solid var(--border);
+        border-radius: 8px; font-size: 0.88rem; font-weight: 600;
+        cursor: pointer; background: var(--white); color: var(--text);
+        font-family: inherit; transition: all 0.15s;
+      }
+      .duration-btn:hover { border-color: var(--sage); }
+      .duration-btn.selected {
+        background: var(--walnut); color: var(--oatmeal); border-color: var(--walnut);
+      }
+      .modal-actions {
+        display: flex; gap: 8px; margin-top: 1.2rem;
+      }
+      .modal-actions button {
+        flex: 1; padding: 0.6rem; border-radius: 8px; font-size: 0.88rem;
+        font-weight: 600; cursor: pointer; border: none; font-family: inherit;
+      }
+      .btn-confirm { background: var(--sage); color: var(--white); }
+      .btn-confirm:hover { background: var(--sage-dark); }
+      .btn-cancel { background: #EEE; color: var(--text); }
+      .btn-cancel:hover { background: #DDD; }
+      .btn-delete { background: var(--danger-light); color: var(--danger); }
+      .btn-delete:hover { background: var(--danger); color: var(--white); }
+
+      /* ===== Loading & Toast ===== */
+      .loading {
+        position: fixed; top: 60px; left: 0; right: 0; bottom: 0;
+        background: var(--oatmeal); display: flex; align-items: center;
+        justify-content: center; z-index: 150;
+      }
+      .loading .spinner {
+        width: 40px; height: 40px; border: 4px solid var(--border);
+        border-top-color: var(--sage); border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .toast {
+        position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+        background: var(--walnut); color: var(--oatmeal); padding: 0.7rem 1.5rem;
+        border-radius: 8px; font-size: 0.85rem; z-index: 300;
+        opacity: 0; transition: opacity 0.3s, transform 0.3s;
+        pointer-events: none;
+      }
+      .toast.show { opacity: 1; transform: translateX(-50%) translateY(-8px); }
+
+      /* ===== Responsive ===== */
+      @media (max-width: 768px) {
+        header .logo { font-size: 0.7rem; letter-spacing: 0.15em; }
+        header .nav button { font-size: 0.7rem; padding: 0.3rem 0.6rem; }
+        .date-nav .current-date { font-size: 1rem; min-width: 140px; }
+        .month-day { min-height: 60px; padding: 0.25rem; }
+        .month-day .day-num { font-size: 0.75rem; }
+        .month-day .booking-summary { font-size: 0.55rem; }
+        .day-table { font-size: 0.65rem; }
+        .day-table th, .day-table td { padding: 0.2rem 0.1rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <header>
+      <div class="logo">RELIFE Fitness · 排課系統</div>
+      <nav class="nav">
+        <button id="tab-day" class="active" onclick="switchView('day')">日檢視</button>
+        <button id="tab-month" onclick="switchView('month')">月檢視</button>
+      </nav>
+    </header>
+
+    <!-- App -->
+    <div id="app">
+      <!-- Date Navigation -->
+      <div class="date-nav">
+        <button onclick="navigateDate(-1)">◀ 上一個</button>
+        <span class="current-date" id="current-date"></span>
+        <button onclick="navigateDate(1)">下一個 ▶</button>
+        <button class="today-btn" onclick="goToday()">今天</button>
+      </div>
+
+      <!-- Day View -->
+      <div id="day-view">
+        <table class="day-table" id="day-table"></table>
+      </div>
+
+      <!-- Month View -->
+      <div id="month-view">
+        <div class="month-grid" id="month-weekdays"></div>
+        <div class="month-grid" id="month-grid"></div>
+      </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal-overlay">
+      <div class="modal" id="modal">
+        <h2 id="modal-title">預約時段</h2>
+        <div class="modal-sub" id="modal-sub"></div>
+
+        <div id="modal-create" style="display:none">
+          <label>選擇教練代號</label>
+          <div class="coach-grid" id="coach-grid"></div>
+          <label>課程時長</label>
+          <div class="duration-row">
+            <button class="duration-btn selected" data-dur="75" onclick="selectDuration(75)">75 分鐘</button>
+            <button class="duration-btn" data-dur="90" onclick="selectDuration(90)">90 分鐘</button>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeModal()">取消</button>
+            <button class="btn-confirm" onclick="createBooking()">確認預約</button>
+          </div>
+        </div>
+
+        <div id="modal-edit" style="display:none">
+          <div id="booking-info" style="background:#F9F7F4;padding:0.8rem;border-radius:8px;margin-bottom:1rem;font-size:0.85rem"></div>
+          <label>修改教練代號</label>
+          <div class="coach-grid" id="coach-grid-edit"></div>
+          <label>修改課程時長</label>
+          <div class="duration-row" id="duration-row-edit">
+            <button class="duration-btn" data-dur="75" onclick="selectDurationEdit(75)">75 分鐘</button>
+            <button class="duration-btn" data-dur="90" onclick="selectDurationEdit(90)">90 分鐘</button>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-delete" onclick="deleteBooking()">取消預約</button>
+            <button class="btn-confirm" onclick="updateBooking()">確認修改</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+// ====== FIREBASE CONFIG ======
+      const firebaseConfig = {
+        apiKey: "AIzaSyBLPb2IPs27u0V_BCL8ASS7QSUqcQnFR2g",
+        authDomain: "relifefitness.firebaseapp.com",
+        databaseURL: "https://relifefitness-default-rtdb.firebaseio.com",
+        projectId: "relifefitness",
+        storageBucket: "relifefitness.firebasestorage.app",
+        messagingSenderId: "608012988598",
+        appId: "1:608012988598:web:eaf9c284851f95f0d27617",
+        measurementId: "G-G1WBW50XF1"
+      };
+
+      window.USE_FALLBACK = false;
+
+      if (!window.USE_FALLBACK) {
+        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+        const { getDatabase, ref, onValue, set, push, remove, update }
+          = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js");
+
+        const app = initializeApp(firebaseConfig);
+        window.db = getDatabase(app);
+        window._ref = ref;
+        window._onValue = onValue;
+        window._set = set;
+        window._push = push;
+        window._remove = remove;
+        window._update = update;
+      }
+
+      // ====== CONSTANTS ======
+      const SPACES = 8;
+      const COACHES = ['A','B','C','D','E','F','G','H','I','J'];
+      const OPEN_HOUR = 9;          // 09:00
+      const CLOSE_HOUR = 22;         // 22:00
+      const SLOT_MINUTES = 15;
+      const SLOTS_PER_DAY = (CLOSE_HOUR - OPEN_HOUR) * 60 / SLOT_MINUTES; // 52
+
+      // ====== STATE ======
+      let currentDate = new Date();
+      let currentView = 'day';
+      let bookings = {};        // key: "YYYY-MM-DD" -> [ {id, space, coach, time, duration} ]
+      let selectedCoach = null;
+      let selectedDuration = 75;
+      let editingCoach = null;
+      let editingDuration = 75;
+      let editingBookingId = null;
+      let editingSlot = null;
+
+      // ====== DATE UTILS ======
+      function fmtDate(d) {
+        const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+        return `${y}-${m}-${day}`;
+      }
+      function slotToTime(slotIndex) {
+        const totalMin = OPEN_HOUR*60 + slotIndex*SLOT_MINUTES;
+        const h = Math.floor(totalMin/60), m = totalMin%60;
+        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      }
+      function timeToSlot(timeStr) {
+        const [h,m] = timeStr.split(':').map(Number);
+        return (h*60 + m - OPEN_HOUR*60) / SLOT_MINUTES;
+      }
+      function slotsToDuration(slots) { return slots * SLOT_MINUTES; }
+      function durationToSlots(min) { return min / SLOT_MINUTES; }
+      function getWeekdayName(d) {
+        return ['日','一','二','三','四','五','六'][d.getDay()];
+      }
+      function isToday(d) {
+        const t = new Date();
+        return d.getFullYear()===t.getFullYear() && d.getMonth()===t.getMonth() && d.getDate()===t.getDate();
+      }
+
+      // ====== FALLBACK STORAGE (LocalStorage) ======
+            let bookmarks = {}; // fallback storage
+
+            function loadFallbackBookings() {
+              const raw = localStorage.getItem('relife_bookings');
+              bookmarks = raw ? JSON.parse(raw) : {};
+            }
+            function saveFallbackBookings() {
+              localStorage.setItem('relife_bookings', JSON.stringify(bookmarks));
+            }
+
+      // ====== DATA ACCESS ======
+      function getBookingsForDate(dateStr) {
+        const data = bookings[dateStr];
+        if (!data) return [];
+        // Firebase push 結構是物件 {key: booking}，需轉成陣列
+        if (Array.isArray(data)) return data;
+        return Object.values(data);
+      }
+
+      function findBookingAtSlot(dateStr, space, slot) {
+        const list = getBookingsForDate(dateStr);
+        for (const b of list) {
+          const startSlot = timeToSlot(b.time);
+          const endSlot = startSlot + durationToSlots(b.duration);
+          if (b.space == space && slot >= startSlot && slot < endSlot) return b;
+        }
+        return null;
+      }
+
+      function hasConflict(dateStr, space, startSlot, durationSlots, excludeId) {
+        const list = getBookingsForDate(dateStr);
+        const endSlot = startSlot + durationSlots;
+        for (const b of list) {
+          if (excludeId && b.id === excludeId) continue;
+          if (b.space != space) continue;
+          const bStart = timeToSlot(b.time);
+          const bEnd = bStart + durationToSlots(b.duration);
+          if (startSlot < bEnd && endSlot > bStart) return true; // overlap
+        }
+        return false;
+      }
+
+      function isSlotWithinBounds(startSlot, durationSlots) {
+        return startSlot + durationSlots <= SLOTS_PER_DAY;
+      }
+
+      function isTimeSlotFull(dateStr, slot) {
+        // 8 spaces all occupied at this slot
+        let count = 0;
+        for (let s=1; s<=SPACES; s++) {
+          if (findBookingAtSlot(dateStr, s, slot)) count++;
+        }
+        return count >= SPACES;
+      }
+
+      function getFullTimeRanges(dateStr) {
+        // 找出連續已滿的時段範圍
+        const ranges = [];
+        let rangeStart = null;
+        for (let i=0; i<SLOTS_PER_DAY; i++) {
+          if (isTimeSlotFull(dateStr, i)) {
+            if (rangeStart === null) rangeStart = i;
+          } else {
+            if (rangeStart !== null) {
+              ranges.push({ start: rangeStart, end: i });
+              rangeStart = null;
+            }
+          }
+        }
+        if (rangeStart !== null) ranges.push({ start: rangeStart, end: SLOTS_PER_DAY });
+        return ranges;
+      }
+
+      function getBusyTimeRanges(dateStr) {
+        // 找出有預約的時段（至少有一間）— for month view summary
+        const ranges = [];
+        let rangeStart = null;
+        for (let i=0; i<SLOTS_PER_DAY; i++) {
+          if (isTimeSlotFull(dateStr, i)) {
+            if (rangeStart === null) rangeStart = i;
+          } else {
+            if (rangeStart !== null) {
+              ranges.push({ start: rangeStart, end: i, full: true });
+              rangeStart = null;
+            }
+          }
+        }
+        if (rangeStart !== null) ranges.push({ start: rangeStart, end: SLOTS_PER_DAY, full: true });
+        return ranges;
+      }
+
+      // ====== RENDER: DAY VIEW ======
+      function renderDayView() {
+        const dateStr = fmtDate(currentDate);
+        const table = document.getElementById('day-table');
+        table.innerHTML = '';
+
+        // Header row
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        headRow.innerHTML = '<th class="time-col">時間</th>' +
+          Array.from({length:SPACES}, (_,i)=>`<th class="space-col">空間 ${i+1}</th>`).join('');
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        // Body
+        const tbody = document.createElement('tbody');
+        for (let i=0; i<SLOTS_PER_DAY; i++) {
+          const tr = document.createElement('tr');
+          if (i % 4 === 0) tr.classList.add('hour-row');
+
+          // Time column
+          const tdTime = document.createElement('td');
+          tdTime.className = 'time-col';
+          tdTime.textContent = slotToTime(i);
+          tr.appendChild(tdTime);
+
+          // Space columns
+          for (let s=1; s<=SPACES; s++) {
+            const td = document.createElement('td');
+            td.className = 'slot empty';
+
+            const b = findBookingAtSlot(dateStr, s, i);
+            if (b) {
+              const bStartSlot = timeToSlot(b.time);
+              if (i === bStartSlot) {
+                // 第一格顯示教練代號
+                td.className = `slot booked bg-${b.coach}`;
+                td.textContent = b.coach;
+                td.onclick = () => openEditModal(b, dateStr);
+                td.rowSpan = durationToSlots(b.duration);
+              } else {
+                // 被合併的後續格，跳過（rowSpan 處理）
+                continue;
+              }
+            } else {
+              td.onclick = () => openCreateModal(s, i, dateStr);
+            }
+
+            // 目前時間指示
+            if (isToday(currentDate)) {
+              const now = new Date();
+              const nowMin = now.getHours()*60 + now.getMinutes() - OPEN_HOUR*60;
+              const nowSlot = Math.floor(nowMin / SLOT_MINUTES);
+              if (i === nowSlot) td.classList.add('current-time');
+            }
+
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
+      }
+
+      // ====== RENDER: MONTH VIEW ======
+      function renderMonthView() {
+        const weekdays = document.getElementById('month-weekdays');
+        weekdays.innerHTML = ['日','一','二','三','四','五','六']
+          .map(d => `<div class="month-weekday">${d}</div>`).join('');
+
+        const grid = document.getElementById('month-grid');
+        grid.innerHTML = '';
+
+        const year = currentDate.getFullYear(), month = currentDate.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month+1, 0);
+        const startWeekday = firstDay.getDay();
+
+        // 上月剩餘天數
+        for (let i = startWeekday-1; i >= 0; i--) {
+          const d = new Date(year, month, -i);
+          grid.appendChild(makeMonthDay(d, true));
+        }
+        // 本月
+        for (let i = 1; i <= lastDay.getDate(); i++) {
+          grid.appendChild(makeMonthDay(new Date(year, month, i), false));
+        }
+        // 下月補滿
+        const totalCells = startWeekday + lastDay.getDate();
+        const remaining = (7 - (totalCells % 7)) % 7;
+        for (let i = 1; i <= remaining; i++) {
+          grid.appendChild(makeMonthDay(new Date(year, month+1, i), true));
+        }
+      }
+
+      function makeMonthDay(d, otherMonth) {
+        const dateStr = fmtDate(d);
+        const div = document.createElement('div');
+        div.className = 'month-day' + (otherMonth ? ' other-month' : '') + (isToday(d) ? ' today' : '');
+
+        // 計算已滿時段
+        const ranges = getBusyTimeRanges(dateStr);
+        const hasFull = ranges.length > 0;
+
+        if (hasFull) div.classList.add('full');
+
+        div.innerHTML = `<div class="day-num">${d.getDate()}</div>`;
+
+        if (!otherMonth) {
+          if (hasFull) {
+            // 取前三段已滿時間
+            const summaryHtml = ranges.slice(0, 3).map(r =>
+              `<div>${slotToTime(r.start)}-${slotToTime(r.end)} 已滿</div>`).join('');
+            div.innerHTML += `<div class="booking-summary">${summaryHtml}</div>`;
+            if (ranges.length > 3) {
+              div.innerHTML += `<div class="full-tag">+${ranges.length-3} 段</div>`;
+            }
+          } else {
+            const dayBookings = getBookingsForDate(dateStr);
+            if (dayBookings.length > 0) {
+              div.innerHTML += `<div class="booking-summary">已預約 ${dayBookings.length} 筆</div>`;
+            }
+          }
+        }
+
+        div.onclick = () => {
+          currentDate = new Date(d);
+          switchView('day');
+          renderDateLabel();
+        };
+        return div;
+      }
+
+      // ====== MODAL: CREATE ======
+      function openCreateModal(space, slot, dateStr) {
+        selectedCoach = null;
+        selectedDuration = 75;
+        editingSlot = { space, slot, dateStr };
+
+        document.getElementById('modal-title').textContent = '預約時段';
+        document.getElementById('modal-sub').textContent =
+          `空間 ${space} · ${slotToTime(slot)} · ${fmtDateCN(currentDate)}`;
+        document.getElementById('modal-create').style.display = 'block';
+        document.getElementById('modal-edit').style.display = 'none';
+        renderCoachGrid('coach-grid', false);
+        document.querySelector('#modal-create .duration-btn[data-dur="75"]').classList.add('selected');
+        document.querySelector('#modal-create .duration-btn[data-dur="90"]').classList.remove('selected');
+        document.getElementById('modal-overlay').classList.add('active');
+      }
+
+      function renderCoachGrid(containerId, isEdit) {
+        const grid = document.getElementById(containerId);
+        grid.innerHTML = '';
+        COACHES.forEach(c => {
+          const btn = document.createElement('button');
+          btn.className = `coach-btn bg-${c}`;
+          btn.textContent = c;
+          btn.style.color = 'var(--white)';
+          const checkSelected = isEdit ? () => editingCoach === c : () => selectedCoach === c;
+          if (checkSelected()) btn.classList.add('selected');
+          btn.onclick = () => {
+            if (isEdit) {
+              editingCoach = c;
+              renderCoachGrid(containerId, true);
+            } else {
+              selectedCoach = c;
+              renderCoachGrid(containerId, false);
+            }
+          };
+          grid.appendChild(btn);
+        });
+      }
+
+      function selectDuration(dur) {
+        selectedDuration = dur;
+        document.querySelectorAll('#modal-create .duration-btn').forEach(b => {
+          b.classList.toggle('selected', parseInt(b.dataset.dur) === dur);
+        });
+      }
+
+      function selectDurationEdit(dur) {
+        editingDuration = dur;
+        document.querySelectorAll('#modal-edit .duration-btn').forEach(b => {
+          b.classList.toggle('selected', parseInt(b.dataset.dur) === dur);
+        });
+      }
+
+      async function createBooking() {
+        if (!selectedCoach) { showToast('請選擇教練代號！'); return; }
+        const { space, slot, dateStr } = editingSlot;
+        const durSlots = durationToSlots(selectedDuration);
+
+        if (!isSlotWithinBounds(slot, durSlots)) {
+          showToast('預約時段超過營業時間（22:00）！');
+          return;
+        }
+        if (hasConflict(dateStr, space, slot, durSlots)) {
+          showToast('此時段已有預約衝突！');
+          return;
+        }
+
+        const booking = {
+          space, coach: selectedCoach, time: slotToTime(slot),
+          duration: selectedDuration, createdAt: Date.now()
+        };
+
+        if (window.USE_FALLBACK) {
+          if (!bookmarks[dateStr]) bookmarks[dateStr] = [];
+          booking.id = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+          bookmarks[dateStr].push(booking);
+          saveFallbackBookings();
+        } else {
+          const dbRef = window._ref(window.db, `bookings/${dateStr}`);
+          const newRef = window._push(dbRef);
+          booking.id = newRef.key;
+          await window._set(newRef, booking);
+        }
+
+        closeModal();
+        showToast(`✅ 預約成功：空間${space} ${booking.time} 教練${selectedCoach}`);
+        if (window.USE_FALLBACK) { bookings = bookmarks; }
+        switchView(currentView);
+      }
+
+      // ====== MODAL: EDIT ======
+      function openEditModal(booking, dateStr) {
+        editingBookingId = booking.id;
+        editingCoach = booking.coach;
+        editingDuration = booking.duration;
+        editingSlot = { space: booking.space, slot: timeToSlot(booking.time), dateStr };
+
+        document.getElementById('modal-title').textContent = '修改 / 取消預約';
+        document.getElementById('modal-sub').textContent =
+          `空間 ${booking.space} · ${booking.time} · 教練 ${booking.coach} · ${booking.duration} 分鐘`;
+        document.getElementById('modal-create').style.display = 'none';
+        document.getElementById('modal-edit').style.display = 'block';
+        document.getElementById('booking-info').innerHTML =
+          `📅 ${fmtDateCN(new Date(dateStr))}<br>🏠 空間 ${booking.space} · ⏰ ${booking.time}<br>👤 教練 ${booking.coach} · ⏱️ ${booking.duration} 分鐘`;
+        renderCoachGrid('coach-grid-edit', true);
+        selectDurationEdit(booking.duration);
+        document.getElementById('modal-overlay').classList.add('active');
+      }
+
+      async function updateBooking() {
+        if (!editingCoach) { showToast('請選擇教練代號！'); return; }
+        const { space, slot, dateStr } = editingSlot;
+        const durSlots = durationToSlots(editingDuration);
+
+        if (!isSlotWithinBounds(slot, durSlots)) {
+          showToast('預約時段超過營業時間（22:00）！');
+          return;
+        }
+        if (hasConflict(dateStr, space, slot, durSlots, editingBookingId)) {
+          showToast('此時段已有其他預約衝突！');
+          return;
+        }
+
+        const updated = {
+          space, coach: editingCoach, time: slotToTime(slot),
+          duration: editingDuration, updatedAt: Date.now()
+        };
+
+        if (window.USE_FALLBACK) {
+          const list = bookmarks[dateStr];
+          const idx = list.findIndex(b => b.id === editingBookingId);
+          if (idx >= 0) { list[idx] = { ...list[idx], ...updated }; saveFallbackBookings(); }
+        } else {
+          await window._update(window._ref(window.db, `bookings/${dateStr}/${editingBookingId}`), updated);
+        }
+
+        closeModal();
+        showToast(`✅ 已修改：教練${editingCoach} ${editingDuration}分鐘`);
+        if (window.USE_FALLBACK) { bookings = bookmarks; }
+        switchView(currentView);
+      }
+
+      async function deleteBooking() {
+        const { dateStr } = editingSlot;
+        if (window.USE_FALLBACK) {
+          const list = bookmarks[dateStr] || [];
+          bookmarks[dateStr] = list.filter(b => b.id !== editingBookingId);
+          saveFallbackBookings();
+        } else {
+          await window._remove(window._ref(window.db, `bookings/${dateStr}/${editingBookingId}`));
+        }
+        closeModal();
+        showToast('🗑️ 已取消預約');
+        if (window.USE_FALLBACK) { bookings = bookmarks; }
+        switchView(currentView);
+      }
+
+      function closeModal() {
+        document.getElementById('modal-overlay').classList.remove('active');
+        selectedCoach = null; editingCoach = null; editingBookingId = null;
+      }
+
+      // ====== VIEW SWITCH & NAVIGATION ======
+      function switchView(view) {
+        currentView = view;
+        const dayEl = document.getElementById('day-view');
+        const monthEl = document.getElementById('month-view');
+        if (view === 'day') {
+          dayEl.style.display = 'block'; monthEl.style.display = 'none';
+          document.getElementById('tab-day').classList.add('active');
+          document.getElementById('tab-month').classList.remove('active');
+          renderDayView();
+        } else {
+          dayEl.style.display = 'none'; monthEl.style.display = 'block';
+          document.getElementById('tab-day').classList.remove('active');
+          document.getElementById('tab-month').classList.add('active');
+          renderMonthView();
+        }
+        renderDateLabel();
+      }
+
+      function navigateDate(delta) {
+        if (currentView === 'day') {
+          currentDate.setDate(currentDate.getDate() + delta);
+        } else {
+          currentDate.setMonth(currentDate.getMonth() + delta);
+        }
+        switchView(currentView);
+      }
+
+      function goToday() {
+        currentDate = new Date();
+        switchView(currentView);
+      }
+
+      function renderDateLabel() {
+        const el = document.getElementById('current-date');
+        if (currentView === 'day') {
+          el.textContent = `${currentDate.getFullYear()}年${currentDate.getMonth()+1}月${currentDate.getDate()}日（${getWeekdayName(currentDate)}）`;
+        } else {
+          el.textContent = `${currentDate.getFullYear()}年${currentDate.getMonth()+1}月`;
+        }
+      }
+
+      function fmtDateCN(d) {
+        return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${getWeekdayName(d)}）`;
+      }
+
+      function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+      }
+
+      // ====== DATA BINDING ======
+      async function initData() {
+        if (window.USE_FALLBACK) {
+          loadFallbackBookings();
+          bookings = bookmarks;
+          document.getElementById('loading').style.display = 'none';
+          switchView('day');
+          // 定時刷新本地資料（跨 tab 同步）
+          window.addEventListener('storage', (e) => {
+            if (e.key === 'relife_bookings') {
+              loadFallbackBookings();
+              bookings = bookmarks;
+              switchView(currentView);
+            }
+          });
+        } else {
+          // Firebase: 監聽 bookings 節點
+          window._onValue(window._ref(window.db, 'bookings'), (snapshot) => {
+            bookings = snapshot.val() || {};
+            document.getElementById('loading').style.display = 'none';
+            switchView(currentView);
+          }, (err) => {
+            console.error('Firebase read error:', err);
+            document.getElementById('loading').innerHTML =
+              '<p style="color:var(--danger);font-size:0.9rem">⚠️ Firebase 連線失敗，請檢查設定金鑰</p>';
+          });
+        }
+      }
+
+      // ====== INIT ======
+      // 因為 module script 有 await，DOMContentLoaded 可能已經觸發過了
+      if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', initData);
+      } else {
+        initData();
+      }
+
+      // ====== Expose for inline onclick ======
+      window.switchView = switchView;
+      window.navigateDate = navigateDate;
+      window.goToday = goToday;
+      window.openCreateModal = openCreateModal;
+      window.openEditModal = openEditModal;
+      window.selectDuration = selectDuration;
+      window.selectDurationEdit = selectDurationEdit;
+      window.createBooking = createBooking;
+      window.updateBooking = updateBooking;
+      window.deleteBooking = deleteBooking;
+      window.closeModal = closeModal;
+    </script>
+  </body>
+</html>

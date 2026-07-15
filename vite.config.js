@@ -7,9 +7,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        gallery: resolve(__dirname, 'gallery.html'),
-      },
+              main: resolve(__dirname, 'index.html'),
+              gallery: resolve(__dirname, 'gallery.html'),
+              schedule: resolve(__dirname, 'schedule.html'),
+            },
     },
   },
 });
