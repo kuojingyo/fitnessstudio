@@ -654,7 +654,13 @@
               if (i === bStartSlot) {
                 // 第一格顯示教練代號
                 td.className = `slot booked bg-${b.coach}`;
-                                td.innerHTML = (b.nickname || coachName(b.coach)) + (b.remark ? `<br><small style="font-size:0.6rem;opacity:0.85">${b.remark}</small>` : '');
+                                const [bh, bm] = b.time.split(':').map(Number);
+                                                const startMin = bh * 60 + bm;
+                                                const endMin = startMin + b.duration;
+                                                const endTime = `${String(Math.floor(endMin/60)).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`;
+                                                td.innerHTML = (b.nickname || coachName(b.coach))
+                                                  + `<br><small style="font-size:0.55rem;opacity:0.8">${b.time}-${endTime}</small>`
+                                                  + (b.remark ? `<br><small style="font-size:0.6rem;opacity:0.85">${b.remark}</small>` : '');
                 td.onclick = () => openEditModal(b, dateStr);
                 td.rowSpan = durationToSlots(b.duration);
               } else {
