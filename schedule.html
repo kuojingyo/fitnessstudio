@@ -124,6 +124,9 @@
       }
       .day-table td.slot.empty { background: #FAFAF7; }
       .day-table td.slot.empty:hover { background: var(--sage-light); }
+      .day-table td.slot.placeholder {
+        visibility: hidden; pointer-events: none;
+      }
       .day-table td.slot.booked {
         color: var(--white); font-weight: 600; font-size: 0.7rem;
       }
@@ -569,8 +572,9 @@
                 td.onclick = () => openEditModal(b, dateStr);
                 td.rowSpan = durationToSlots(b.duration);
               } else {
-                // 被合併的後續格，跳過（rowSpan 處理）
-                continue;
+                // rowSpan 佔位格 — 隱形但佔住欄位，保持每列整齊
+                td.className = 'slot placeholder';
+                td.style.pointerEvents = 'none';
               }
             } else {
               td.onclick = () => openCreateModal(s, i, dateStr);
