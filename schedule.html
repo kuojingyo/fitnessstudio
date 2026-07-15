@@ -319,25 +319,29 @@
           <div class="coach-grid" id="coach-grid"></div>
           <label>課程時長</label>
           <div class="duration-row">
-            <button class="duration-btn selected" data-dur="75" onclick="selectDuration(75)">75 分鐘</button>
-            <button class="duration-btn" data-dur="90" onclick="selectDuration(90)">90 分鐘</button>
-          </div>
-          <div class="modal-actions">
-            <button class="btn-cancel" onclick="closeModal()">取消</button>
-            <button class="btn-confirm" onclick="createBooking()">確認預約</button>
-          </div>
-        </div>
+                      <button class="duration-btn selected" data-dur="75" onclick="selectDuration(75)">75 分鐘</button>
+                      <button class="duration-btn" data-dur="90" onclick="selectDuration(90)">90 分鐘</button>
+                    </div>
+                    <label for="pwd-create">🔐 編輯密碼（公用電腦操作驗證）</label>
+                    <input type="password" id="pwd-create" placeholder="請輸入密碼" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;margin-bottom:0.5rem">
+                    <div class="modal-actions">
+                      <button class="btn-cancel" onclick="closeModal()">取消</button>
+                      <button class="btn-confirm" onclick="createBooking()">確認預約</button>
+                    </div>
+                  </div>
 
-        <div id="modal-edit" style="display:none">
-          <div id="booking-info" style="background:#F9F7F4;padding:0.8rem;border-radius:8px;margin-bottom:1rem;font-size:0.85rem"></div>
-          <label>修改教練代號</label>
-          <div class="coach-grid" id="coach-grid-edit"></div>
-          <label>修改課程時長</label>
-          <div class="duration-row" id="duration-row-edit">
-            <button class="duration-btn" data-dur="75" onclick="selectDurationEdit(75)">75 分鐘</button>
-            <button class="duration-btn" data-dur="90" onclick="selectDurationEdit(90)">90 分鐘</button>
-          </div>
-          <div class="modal-actions">
+                  <div id="modal-edit" style="display:none">
+                    <div id="booking-info" style="background:#F9F7F4;padding:0.8rem;border-radius:8px;margin-bottom:1rem;font-size:0.85rem"></div>
+                    <label>修改教練代號</label>
+                    <div class="coach-grid" id="coach-grid-edit"></div>
+                    <label>修改課程時長</label>
+                    <div class="duration-row" id="duration-row-edit">
+                      <button class="duration-btn" data-dur="75" onclick="selectDurationEdit(75)">75 分鐘</button>
+                      <button class="duration-btn" data-dur="90" onclick="selectDurationEdit(90)">90 分鐘</button>
+                    </div>
+                    <label for="pwd-edit">🔐 編輯密碼（公用電腦操作驗證）</label>
+                    <input type="password" id="pwd-edit" placeholder="請輸入密碼" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;margin-bottom:0.5rem">
+                    <div class="modal-actions">
             <button class="btn-delete" onclick="deleteBooking()">取消預約</button>
             <button class="btn-confirm" onclick="updateBooking()">確認修改</button>
           </div>
@@ -401,7 +405,17 @@
       const SLOT_MINUTES = 15;
       const SLOTS_PER_DAY = (CLOSE_HOUR - OPEN_HOUR) * 60 / SLOT_MINUTES; // 52
 
-      // ====== STATE ======
+      const PASSWORD = '2026';
+      function checkPassword(fieldId) {
+        const input = document.getElementById(fieldId);
+        if (input.value !== PASSWORD) {
+          showToast('❌ 密碼錯誤，無法進行編輯！');
+          input.value = '';
+          return false;
+        }
+        input.value = '';
+        return true;
+      }
       let currentDate = new Date();
       let currentView = 'day';
       let bookings = {};        // key: "YYYY-MM-DD" -> [ {id, space, coach, time, duration} ]
@@ -715,7 +729,8 @@
       }
 
       async function createBooking() {
-        if (!selectedCoach) { showToast('請選擇教練代號！'); return; }
+              if (!checkPassword('pwd-create')) return;
+              if (!selectedCoach) { showToast('請選擇教練代號！'); return; }
         const { space, slot, dateStr } = editingSlot;
         const durSlots = durationToSlots(selectedDuration);
 
@@ -771,7 +786,8 @@
       }
 
       async function updateBooking() {
-        if (!editingCoach) { showToast('請選擇教練代號！'); return; }
+              if (!checkPassword('pwd-edit')) return;
+              if (!editingCoach) { showToast('請選擇教練代號！'); return; }
         const { space, slot, dateStr } = editingSlot;
         const durSlots = durationToSlots(editingDuration);
 
@@ -804,7 +820,8 @@
       }
 
       async function deleteBooking() {
-        const { dateStr } = editingSlot;
+              if (!checkPassword('pwd-edit')) return;
+              const { dateStr } = editingSlot;
         if (window.USE_FALLBACK) {
           const list = bookmarks[dateStr] || [];
           bookmarks[dateStr] = list.filter(b => b.id !== editingBookingId);
