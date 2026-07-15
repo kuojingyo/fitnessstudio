@@ -126,8 +126,8 @@
       .day-table td.slot.empty { background: #FAFAF7; }
       .day-table td.slot.empty:hover { background: var(--sage-light); }
       .day-table td.slot.booked {
-        color: var(--white); font-weight: 600; font-size: 0.7rem;
-      }
+              color: var(--white); font-weight: 600; font-size: 0.8rem;
+            }
       .day-table td.slot.booked:hover { filter: brightness(1.1); }
       .day-table td.slot.continuation {
         opacity: 0.5; cursor: default;
@@ -659,8 +659,8 @@
                                                 const endMin = startMin + b.duration;
                                                 const endTime = `${String(Math.floor(endMin/60)).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`;
                                                 td.innerHTML = (b.nickname || coachName(b.coach))
-                                                  + `<br><small style="font-size:0.55rem;opacity:0.8">${b.time}-${endTime}</small>`
-                                                  + (b.remark ? `<br><small style="font-size:0.6rem;opacity:0.85">${b.remark}</small>` : '');
+                                                  + `<br><small style="font-size:0.65rem;opacity:0.8">${b.time}-${endTime}</small>`
+                                                                                                    + (b.remark ? `<br><small style="font-size:0.65rem;opacity:0.85">${b.remark}</small>` : '');
                 td.onclick = () => openEditModal(b, dateStr);
                 td.rowSpan = durationToSlots(b.duration);
               } else {
