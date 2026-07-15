@@ -156,6 +156,7 @@
       .month-day.today { border-color: var(--accent); border-width: 2px; }
             .month-day.warning { background: #FFF3CD; border-color: #FFC107; }
             .month-day.danger  { background: #F8D7DA; border-color: #DC3545; }
+            .month-day.selected { box-shadow: 0 0 0 3px var(--sage); }
       .month-day .day-num {
         font-size: 0.95rem; font-weight: 600; margin-bottom: 0.2rem;
       }
@@ -694,10 +695,19 @@
 
               div.innerHTML = `<div class="day-num">${d.getDate()}</div>`;
 
-        div.onclick = () => {
-                  currentDate = new Date(d);
-                  switchView('day');
-                };
+                      let clickCount = 0;
+                      div.onclick = () => {
+                        clickCount++;
+                        if (clickCount === 1) {
+                          // 第一次：選中高亮
+                          document.querySelectorAll('.month-day.selected').forEach(el => el.classList.remove('selected'));
+                          div.classList.add('selected');
+                        } else {
+                          // 第二次：跳轉日檢視
+                          currentDate = new Date(d);
+                          switchView('day');
+                        }
+                      };
         return div;
       }
 
