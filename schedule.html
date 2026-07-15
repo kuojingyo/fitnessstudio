@@ -106,8 +106,8 @@
         border-right: 1px solid var(--border);
         text-align: center;
       }
-      .day-table th.time-col { width: 65px; min-width: 65px; }
-      .day-table th.space-col { width: 90px; min-width: 90px; }
+      .day-table th.time-col { width: 65px; min-width: 65px; position: sticky; left: 0; z-index: 11; }
+            .day-table th.space-col { width: 90px; min-width: 90px; }
       .day-table thead th {
         background: var(--walnut); color: var(--oatmeal);
         padding: 0.5rem 0.3rem; font-weight: 500; font-size: 0.72rem;
@@ -177,9 +177,17 @@
       }
       .modal-overlay.active { display: flex; }
       .modal {
-        background: var(--white); border-radius: 12px; padding: 1.8rem;
-        width: 90%; max-width: 380px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-      }
+              position: relative;
+              background: var(--white); border-radius: 12px; padding: 1.8rem;
+              width: 90%; max-width: 380px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            }
+            .modal-close {
+              position: absolute; top: 10px; right: 12px;
+              background: none; border: none; font-size: 1.2rem;
+              color: var(--text-light); cursor: pointer; padding: 4px 8px;
+              border-radius: 4px; line-height: 1;
+            }
+            .modal-close:hover { background: #EEE; color: var(--text); }
       .modal h2 {
         font-size: 1.1rem; margin-bottom: 0.3rem; color: var(--text);
       }
@@ -309,9 +317,10 @@
     </div>
 
     <!-- Modal -->
-    <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal" id="modal">
-        <h2 id="modal-title">預約時段</h2>
+              <button class="modal-close" onclick="closeModal()" title="關閉">✕</button>
+              <h2 id="modal-title">預約時段</h2>
         <div class="modal-sub" id="modal-sub"></div>
 
         <div id="modal-create" style="display:none">
@@ -405,17 +414,31 @@
       const SLOT_MINUTES = 15;
       const SLOTS_PER_DAY = (CLOSE_HOUR - OPEN_HOUR) * 60 / SLOT_MINUTES; // 52
 
-      const PASSWORD = '2026';
-      function checkPassword(fieldId) {
-        const input = document.getElementById(fieldId);
-        if (input.value !== PASSWORD) {
-          showToast('❌ 密碼錯誤，無法進行編輯！');
-          input.value = '';
-          return false;
-        }
-        input.value = '';
-        return true;
-      }
+            const PASSWORD = '2026';
+            function checkPassword(fieldId) {
+              const input = document.getElementById(fieldId);
+              if (input.value !== PASSWORD) {
+                showToast('❌ 密碼錯誤，無法進行編輯！');
+                input.value = '';
+                return false;
+              }
+              input.value = '';
+              return true;
+            }
+
+            // Firebase 寫入包裝（含錯誤處理）
+            async function fbSet(ref, data) {
+              try { await window._set(ref, data); return true; }
+              catch(e) { console.error(e); showToast('⚠️ 寫入失敗，請檢查網路'); return false; }
+            }
+            async function fbUpdate(ref, data) {
+              try { await window._update(ref, data); return true; }
+              catch(e) { console.error(e); showToast('⚠️ 更新失敗，請檢查網路'); return false; }
+            }
+            async function fbRemove(ref) {
+              try { await window._remove(ref); return true; }
+              catch(e) { console.error(e); showToast('⚠️ 刪除失敗，請檢查網路'); return false; }
+            }
       let currentDate = new Date();
       let currentView = 'day';
       let bookings = {};        // key: "YYYY-MM-DD" -> [ {id, space, coach, time, duration} ]
@@ -667,10 +690,9 @@
         }
 
         div.onclick = () => {
-          currentDate = new Date(d);
-          switchView('day');
-          renderDateLabel();
-        };
+                  currentDate = new Date(d);
+                  switchView('day');
+                };
         return div;
       }
 
@@ -756,8 +778,8 @@
         } else {
           const dbRef = window._ref(window.db, `bookings/${dateStr}`);
           const newRef = window._push(dbRef);
-          booking.id = newRef.key;
-          await window._set(newRef, booking);
+                    booking.id = newRef.key;
+                    if (!await fbSet(newRef, booking)) return;
         }
 
         closeModal();
@@ -806,12 +828,13 @@
         };
 
         if (window.USE_FALLBACK) {
-          const list = bookmarks[dateStr];
-          const idx = list.findIndex(b => b.id === editingBookingId);
-          if (idx >= 0) { list[idx] = { ...list[idx], ...updated }; saveFallbackBookings(); }
-        } else {
-          await window._update(window._ref(window.db, `bookings/${dateStr}/${editingBookingId}`), updated);
-        }
+                  const list = bookmarks[dateStr] || [];
+                  const idx = list.findIndex(b => b.id === editingBookingId);
+                  if (idx >= 0) { list[idx] = { ...list[idx], ...updated }; saveFallbackBookings(); }
+                                    else { showToast('⚠️ 找不到該預約，可能已被刪除'); return; }
+                                  } else {
+                                                              if (!await fbUpdate(window._ref(window.db, `bookings/${dateStr}/${editingBookingId}`), updated)) return;
+                                                            }
 
         closeModal();
         showToast(`✅ 已修改：教練${coachName(editingCoach)} ${editingDuration}分鐘`);
@@ -827,7 +850,7 @@
           bookmarks[dateStr] = list.filter(b => b.id !== editingBookingId);
           saveFallbackBookings();
         } else {
-          await window._remove(window._ref(window.db, `bookings/${dateStr}/${editingBookingId}`));
+          if (!await fbRemove(window._ref(window.db, `bookings/${dateStr}/${editingBookingId}`))) return;
         }
         closeModal();
         showToast('🗑️ 已取消預約');
@@ -860,13 +883,15 @@
       }
 
       function navigateDate(delta) {
-        if (currentView === 'day') {
-          currentDate.setDate(currentDate.getDate() + delta);
-        } else {
-          currentDate.setMonth(currentDate.getMonth() + delta);
-        }
-        switchView(currentView);
-      }
+              if (currentView === 'day') {
+                currentDate.setDate(currentDate.getDate() + delta);
+              } else {
+                // 用 setDate(1) 先鎖在第一天，避免 setMonth 漂移
+                currentDate.setDate(1);
+                currentDate.setMonth(currentDate.getMonth() + delta);
+              }
+              switchView(currentView);
+            }
 
       function goToday() {
         currentDate = new Date();
