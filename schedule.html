@@ -338,7 +338,9 @@
                       <button class="duration-btn selected" data-dur="75" onclick="selectDuration(75)">75 分鐘</button>
                       <button class="duration-btn" data-dur="90" onclick="selectDuration(90)">90 分鐘</button>
                     </div>
-                    <label for="pwd-create">🔐 編輯密碼</label>
+                                        <label for="remark-input">📝 備註</label>
+                                        <input type="text" id="remark-input" placeholder="選填，例如：體驗課、調整姿勢" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;margin-bottom:0.5rem">
+                                        <label for="pwd-create">🔐 編輯密碼</label>
                     <input type="password" id="pwd-create" placeholder="請輸入密碼" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;margin-bottom:0.5rem">
                     <div class="modal-actions">
                       <button class="btn-cancel" onclick="closeModal()">取消</button>
@@ -355,6 +357,8 @@
                       <button class="duration-btn" data-dur="75" onclick="selectDurationEdit(75)">75 分鐘</button>
                       <button class="duration-btn" data-dur="90" onclick="selectDurationEdit(90)">90 分鐘</button>
                     </div>
+                    <label for="remark-edit">📝 備註</label>
+                    <input type="text" id="remark-edit" placeholder="選填" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;margin-bottom:0.5rem">
                     <label for="pwd-edit">🔐 編輯密碼</label>
                     <input type="password" id="pwd-edit" placeholder="請輸入密碼" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;margin-bottom:0.5rem">
                     <div class="modal-actions">
@@ -632,7 +636,7 @@
               if (i === bStartSlot) {
                 // 第一格顯示教練代號
                 td.className = `slot booked bg-${b.coach}`;
-                                td.textContent = b.nickname || coachName(b.coach);
+                                td.innerHTML = (b.nickname || coachName(b.coach)) + (b.remark ? `<br><small style="font-size:0.6rem;opacity:0.85">${b.remark}</small>` : '');
                 td.onclick = () => openEditModal(b, dateStr);
                 td.rowSpan = durationToSlots(b.duration);
               } else {
@@ -808,11 +812,13 @@
                   duration: selectedDuration, createdAt: Date.now()
                 };
                 // 「其他」教練需記錄暱稱
-                if (canOverlap(selectedCoach)) {
-                  const nick = document.getElementById('nickname-input').value.trim();
-                  if (!nick) { showToast('請輸入暱稱！'); return; }
-                  booking.nickname = nick;
-                }
+                                if (canOverlap(selectedCoach)) {
+                                  const nick = document.getElementById('nickname-input').value.trim();
+                                  if (!nick) { showToast('請輸入暱稱！'); return; }
+                                  booking.nickname = nick;
+                                }
+                                const remark = document.getElementById('remark-input').value.trim();
+                                if (remark) booking.remark = remark;
 
         if (window.USE_FALLBACK) {
           if (!bookmarks[dateStr]) bookmarks[dateStr] = [];
@@ -841,14 +847,15 @@
 
         document.getElementById('modal-title').textContent = '修改 / 取消預約';
         document.getElementById('modal-sub').textContent =
-          `${spaceName(booking.space)} · ${booking.time} · 教練 ${coachName(booking.coach)} · ${booking.duration} 分鐘`;
-                  document.getElementById('modal-create').style.display = 'none';
-                  document.getElementById('modal-edit').style.display = 'block';
-                  document.getElementById('booking-info').innerHTML =
-                    `📅 ${fmtDateCN(new Date(dateStr))}<br>🏠 ${spaceName(booking.space)} · ⏰ ${booking.time}<br>👤 教練 ${coachName(booking.coach)} · ⏱️ ${booking.duration} 分鐘`;
+          `${spaceName(booking.space)} · ${booking.time} · 教練 ${coachName(booking.coach)} · ${booking.duration} 分鐘${booking.remark ? ' · 📝' + booking.remark : ''}`;
+                            document.getElementById('modal-create').style.display = 'none';
+                            document.getElementById('modal-edit').style.display = 'block';
+                            document.getElementById('booking-info').innerHTML =
+                              `📅 ${fmtDateCN(new Date(dateStr))}<br>🏠 ${spaceName(booking.space)} · ⏰ ${booking.time}<br>👤 教練 ${coachName(booking.coach)} · ⏱️ ${booking.duration} 分鐘${booking.remark ? '<br>📝 ' + booking.remark : ''}`;
         renderCoachGrid('coach-grid-edit', true);
-        selectDurationEdit(booking.duration);
-        document.getElementById('modal-overlay').classList.add('active');
+                selectDurationEdit(booking.duration);
+                document.getElementById('remark-edit').value = booking.remark || '';
+                document.getElementById('modal-overlay').classList.add('active');
       }
 
       async function updateBooking() {
@@ -871,9 +878,12 @@
                 }
 
         const updated = {
-          space, coach: editingCoach, time: slotToTime(slot),
-          duration: editingDuration, updatedAt: Date.now()
-        };
+                  space, coach: editingCoach, time: slotToTime(slot),
+                  duration: editingDuration, updatedAt: Date.now()
+                };
+                // 處理備註（空字串則不更新，保留原值）
+                                const origRemark = document.getElementById('remark-edit').value.trim();
+                                if (origRemark) updated.remark = origRemark;
 
         if (window.USE_FALLBACK) {
                   const list = bookmarks[dateStr] || [];
@@ -910,9 +920,11 @@
               document.getElementById('modal-overlay').classList.remove('active');
               selectedCoach = null; editingCoach = null; editingBookingId = null;
               const nickInput = document.getElementById('nickname-input');
-              if (nickInput) nickInput.value = '';
-              const nickRow = document.getElementById('nickname-row');
-              if (nickRow) nickRow.style.display = 'none';
+                            if (nickInput) nickInput.value = '';
+                            const nickRow = document.getElementById('nickname-row');
+                            if (nickRow) nickRow.style.display = 'none';
+                            const remarkInput = document.getElementById('remark-input');
+                            if (remarkInput) remarkInput.value = '';
             }
 
       // ====== VIEW SWITCH & NAVIGATION ======
