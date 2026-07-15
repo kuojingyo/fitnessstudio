@@ -96,6 +96,7 @@
         background: var(--white);
       }
       .day-table {
+        table-layout: fixed;
         border-collapse: separate; border-spacing: 0;
         width: 100%; min-width: 900px;
         font-size: 0.75rem;
@@ -105,13 +106,13 @@
         border-right: 1px solid var(--border);
         text-align: center;
       }
+      .day-table th.time-col { width: 65px; min-width: 65px; }
+      .day-table th.space-col { width: 90px; min-width: 90px; }
       .day-table thead th {
         background: var(--walnut); color: var(--oatmeal);
         padding: 0.5rem 0.3rem; font-weight: 500; font-size: 0.72rem;
         position: sticky; top: 0; z-index: 10;
       }
-      .day-table th.time-col { min-width: 65px; }
-      .day-table th.space-col { min-width: 90px; }
       .day-table td.time-col {
         background: var(--white); font-weight: 500; color: var(--text-light);
         font-size: 0.68rem; position: sticky; left: 0; z-index: 5;
