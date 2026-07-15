@@ -721,9 +721,10 @@
                     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                     const bookings = getBookingsForDate(dateStr);
                     for (const b of bookings) {
-                      // 排除「其他」和「團課」
-                      if (b.coach === 'B' || b.coach === 'C') continue;
-                      const name = coachName(b.coach);
+                                          // 排除「其他」、「團課」和行政時段
+                                          if (b.coach === 'B' || b.coach === 'C') continue;
+                                          if (b.space === 1) continue;
+                                          const name = coachName(b.coach);
                       counts[name] = (counts[name] || 0) + 1;
                     }
                   }
