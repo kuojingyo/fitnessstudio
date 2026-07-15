@@ -405,7 +405,9 @@
       }
 
       // ====== CONSTANTS ======
-      const SPACES = 8;
+            const SPACES = 8;
+            const SPACE_NAMES = ['一樓槓座','一樓史密斯','一樓cable','一樓機動空間','二樓槓座','二樓自由重量(1)','二樓自由重量(2)','二樓機動空間'];
+            function spaceName(n) { return SPACE_NAMES[n-1] || `空間 ${n}`; }
 
       // 🏷️ 教練名單 — 修改這裡即可更改顯示名稱！
             //    格式：'代號': '顯示名稱'
@@ -418,6 +420,21 @@
             const CAN_OVERLAP = new Set(['B']);
             function coachName(code) { return COACH_NAMES[code] || code; }
             function canOverlap(code) { return CAN_OVERLAP.has(code); }
+
+      // 檢查同一教練是否已在其他空間有重疊預約
+      function hasCoachConflict(dateStr, coachCode, startSlot, durationSlots, excludeId) {
+        if (canOverlap(coachCode)) return false; // 「其他」不受限
+        const list = getBookingsForDate(dateStr);
+        const endSlot = startSlot + durationSlots;
+        for (const b of list) {
+          if (excludeId && b.id === excludeId) continue;
+          if (b.coach !== coachCode) continue;
+          const bStart = timeToSlot(b.time);
+          const bEnd = bStart + durationToSlots(b.duration);
+          if (startSlot < bEnd && endSlot > bStart) return true;
+        }
+        return false;
+      }
       const OPEN_HOUR = 9;          // 09:00
       const CLOSE_HOUR = 22;         // 22:00
       const SLOT_MINUTES = 15;
@@ -588,7 +605,7 @@
         const thead = document.createElement('thead');
         const headRow = document.createElement('tr');
         headRow.innerHTML = '<th class="time-col">時間</th>' +
-          Array.from({length:SPACES}, (_,i)=>`<th class="space-col">空間 ${i+1}</th>`).join('');
+          Array.from({length:SPACES}, (_,i)=>`<th class="space-col">${spaceName(i+1)}</th>`).join('');
         thead.appendChild(headRow);
         table.appendChild(thead);
 
@@ -719,7 +736,7 @@
 
         document.getElementById('modal-title').textContent = '預約時段';
         document.getElementById('modal-sub').textContent =
-          `空間 ${space} · ${slotToTime(slot)} · ${fmtDateCN(currentDate)}`;
+          `${spaceName(space)} · ${slotToTime(slot)} · ${fmtDateCN(currentDate)}`;
         document.getElementById('modal-create').style.display = 'block';
         document.getElementById('modal-edit').style.display = 'none';
         renderCoachGrid('coach-grid', false);
@@ -778,7 +795,11 @@
           return;
         }
         if (hasConflict(dateStr, space, slot, durSlots, null, selectedCoach)) {
-                  showToast('此時段已有預約衝突！');
+                          showToast('此時段已有預約衝突！');
+                          return;
+                        }
+                if (hasCoachConflict(dateStr, selectedCoach, slot, durSlots)) {
+                  showToast('⚠️ 該教練此時段已有其他預約！');
                   return;
                 }
 
@@ -806,7 +827,7 @@
         }
 
         closeModal();
-                showToast(`✅ 預約成功：空間${space} ${booking.time} ${booking.nickname || coachName(selectedCoach)}`);
+                showToast(`✅ 預約成功：${spaceName(space)} ${booking.time} ${booking.nickname || coachName(selectedCoach)}`);
         if (window.USE_FALLBACK) { bookings = bookmarks; }
         switchView(currentView);
       }
@@ -820,11 +841,11 @@
 
         document.getElementById('modal-title').textContent = '修改 / 取消預約';
         document.getElementById('modal-sub').textContent =
-          `空間 ${booking.space} · ${booking.time} · 教練 ${coachName(booking.coach)} · ${booking.duration} 分鐘`;
-        document.getElementById('modal-create').style.display = 'none';
-        document.getElementById('modal-edit').style.display = 'block';
-        document.getElementById('booking-info').innerHTML =
-          `📅 ${fmtDateCN(new Date(dateStr))}<br>🏠 空間 ${booking.space} · ⏰ ${booking.time}<br>👤 教練 ${coachName(booking.coach)} · ⏱️ ${booking.duration} 分鐘`;
+          `${spaceName(booking.space)} · ${booking.time} · 教練 ${coachName(booking.coach)} · ${booking.duration} 分鐘`;
+                  document.getElementById('modal-create').style.display = 'none';
+                  document.getElementById('modal-edit').style.display = 'block';
+                  document.getElementById('booking-info').innerHTML =
+                    `📅 ${fmtDateCN(new Date(dateStr))}<br>🏠 ${spaceName(booking.space)} · ⏰ ${booking.time}<br>👤 教練 ${coachName(booking.coach)} · ⏱️ ${booking.duration} 分鐘`;
         renderCoachGrid('coach-grid-edit', true);
         selectDurationEdit(booking.duration);
         document.getElementById('modal-overlay').classList.add('active');
@@ -841,9 +862,13 @@
           return;
         }
         if (hasConflict(dateStr, space, slot, durSlots, editingBookingId, editingCoach)) {
-          showToast('此時段已有其他預約衝突！');
-          return;
-        }
+                  showToast('此時段已有其他預約衝突！');
+                  return;
+                }
+                if (hasCoachConflict(dateStr, editingCoach, slot, durSlots, editingBookingId)) {
+                  showToast('⚠️ 該教練此時段已有其他預約！');
+                  return;
+                }
 
         const updated = {
           space, coach: editingCoach, time: slotToTime(slot),
