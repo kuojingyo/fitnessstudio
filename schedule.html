@@ -291,8 +291,8 @@
     <header>
       <div class="logo">RELIFE Fitness · 排課系統</div>
       <nav class="nav">
-        <button id="tab-day" class="active" onclick="switchView('day')">日檢視</button>
-        <button id="tab-month" onclick="switchView('month')">月檢視</button>
+        <button id="tab-day" onclick="switchView('day')">日檢視</button>
+                <button id="tab-month" class="active" onclick="switchView('month')">月檢視</button>
       </nav>
     </header>
 
@@ -488,7 +488,7 @@
               catch(e) { console.error(e); showToast('⚠️ 刪除失敗，請檢查網路'); return false; }
             }
       let currentDate = new Date();
-      let currentView = 'day';
+      let currentView = 'month';
       let bookings = {};        // key: "YYYY-MM-DD" -> [ {id, space, coach, time, duration} ]
       let selectedCoach = null;
       let selectedDuration = 75;
@@ -1115,13 +1115,27 @@
       }
 
       // ====== INIT ======
-      // 行政時段下拉 event listener（module scope 內才能正確更新變數）
-      document.getElementById('admin-duration').addEventListener('change', function() {
-        selectedDuration = parseInt(this.value);
-      });
-      document.getElementById('admin-duration-edit').addEventListener('change', function() {
-        editingDuration = parseInt(this.value);
-      });
+            // 行政時段下拉 event listener（module scope 內才能正確更新變數）
+            document.getElementById('admin-duration').addEventListener('change', function() {
+              selectedDuration = parseInt(this.value);
+            });
+            document.getElementById('admin-duration-edit').addEventListener('change', function() {
+              editingDuration = parseInt(this.value);
+            });
+            // Enter 快捷鍵：modal 打開時等同點擊確認按鈕
+            document.addEventListener('keydown', function(e) {
+              if (e.key !== 'Enter') return;
+              const overlay = document.getElementById('modal-overlay');
+              if (!overlay.classList.contains('active')) return;
+              // 避免 select 下拉時誤觸
+              if (e.target.tagName === 'SELECT') return;
+              const create = document.getElementById('modal-create');
+              if (create.style.display !== 'none') {
+                document.querySelector('#modal-create .btn-confirm').click();
+              } else {
+                document.querySelector('#modal-edit .btn-confirm').click();
+              }
+            });
       // 因為 module script 有 await，DOMContentLoaded 可能已經觸發過了
       if (document.readyState === 'loading') {
         window.addEventListener('DOMContentLoaded', initData);
