@@ -154,7 +154,8 @@
       .month-day:hover { border-color: var(--sage); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
       .month-day.other-month { opacity: 0.35; background: #EDE9E3; }
       .month-day.today { border-color: var(--accent); border-width: 2px; }
-      .month-day.full { background: var(--danger-light); border-color: var(--danger); }
+            .month-day.warning { background: #FFF3CD; border-color: #FFC107; }
+            .month-day.danger  { background: #F8D7DA; border-color: #DC3545; }
       .month-day .day-num {
         font-size: 0.95rem; font-weight: 600; margin-bottom: 0.2rem;
       }
@@ -671,34 +672,27 @@
       }
 
       function makeMonthDay(d, otherMonth) {
-        const dateStr = fmtDate(d);
-        const div = document.createElement('div');
-        div.className = 'month-day' + (otherMonth ? ' other-month' : '') + (isToday(d) ? ' today' : '');
+              const dateStr = fmtDate(d);
+              const div = document.createElement('div');
+              div.className = 'month-day' + (otherMonth ? ' other-month' : '') + (isToday(d) ? ' today' : '');
 
-        // 計算已滿時段
-        const ranges = getBusyTimeRanges(dateStr);
-        const hasFull = ranges.length > 0;
+              if (!otherMonth) {
+                // 統計每 15 分鐘槽有多少空間被佔用
+                let maxOccupied = 0;
+                let busySlots = 0;
+                for (let slot = 0; slot < SLOTS_PER_DAY; slot++) {
+                  let count = 0;
+                  for (let s = 1; s <= SPACES; s++) {
+                    if (findBookingAtSlot(dateStr, s, slot)) count++;
+                  }
+                  if (count > maxOccupied) maxOccupied = count;
+                  if (count >= 6) busySlots++;
+                }
+                if (busySlots > 12) div.classList.add('danger');
+                else if (maxOccupied >= 6) div.classList.add('warning');
+              }
 
-        if (hasFull) div.classList.add('full');
-
-        div.innerHTML = `<div class="day-num">${d.getDate()}</div>`;
-
-        if (!otherMonth) {
-          if (hasFull) {
-            // 取前三段已滿時間
-            const summaryHtml = ranges.slice(0, 3).map(r =>
-              `<div>${slotToTime(r.start)}-${slotToTime(r.end)} 已滿</div>`).join('');
-            div.innerHTML += `<div class="booking-summary">${summaryHtml}</div>`;
-            if (ranges.length > 3) {
-              div.innerHTML += `<div class="full-tag">+${ranges.length-3} 段</div>`;
-            }
-          } else {
-            const dayBookings = getBookingsForDate(dateStr);
-            if (dayBookings.length > 0) {
-              div.innerHTML += `<div class="booking-summary">已預約 ${dayBookings.length} 筆</div>`;
-            }
-          }
-        }
+              div.innerHTML = `<div class="day-num">${d.getDate()}</div>`;
 
         div.onclick = () => {
                   currentDate = new Date(d);
