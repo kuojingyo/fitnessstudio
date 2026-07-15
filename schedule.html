@@ -429,12 +429,15 @@
       // 🏷️ 教練名單 — 修改這裡即可更改顯示名稱！
             //    格式：'代號': '顯示名稱'
             const COACH_NAMES = {
-              'A': '史昕銓',
-              'B': '其他',
-            };
-            const COACHES = Object.keys(COACH_NAMES);
-            // 🔄 可以重疊預約的教練代號（例如「其他」可以跟任何人重疊）
-            const CAN_OVERLAP = new Set(['B']);
+                          'A': '史昕銓',
+                          'B': '其他',
+                          'C': '團課',
+                        };
+                        const COACHES = Object.keys(COACH_NAMES);
+                        // 🔄 可以重疊預約的教練代號（例如「其他」可以跟任何人重疊）
+                        const CAN_OVERLAP = new Set(['B']);
+                        // 🏋️ 團課空間（不可個別預約，選團課時一次佔三格）
+                        const TEAM_SPACES = [7, 8, 9];
             function coachName(code) { return COACH_NAMES[code] || code; }
             function canOverlap(code) { return CAN_OVERLAP.has(code); }
 
@@ -763,7 +766,7 @@
               document.getElementById('admin-duration').style.display = isAdmin ? 'block' : 'none';
               if (isAdmin) document.getElementById('admin-duration').value = '90';
 
-              renderCoachGrid('coach-grid', false);
+              renderCoachGrid('coach-grid', false, space);
               if (!isAdmin) {
                 document.querySelector('#modal-create .duration-btn[data-dur="75"]').classList.add('selected');
                 document.querySelector('#modal-create .duration-btn[data-dur="90"]').classList.remove('selected');
@@ -771,27 +774,29 @@
               document.getElementById('modal-overlay').classList.add('active');
             }
 
-      function renderCoachGrid(containerId, isEdit) {
-        const grid = document.getElementById(containerId);
-        grid.innerHTML = '';
-        COACHES.forEach(c => {
-          const btn = document.createElement('button');
-          btn.className = `coach-btn bg-${c}`;
-          btn.textContent = coachName(c);
+      function renderCoachGrid(containerId, isEdit, spaceNum) {
+              const grid = document.getElementById(containerId);
+              grid.innerHTML = '';
+              COACHES.forEach(c => {
+                // 團課只在 7/8/9 空間顯示
+                if (c === 'C' && spaceNum && !TEAM_SPACES.includes(spaceNum)) return;
+                const btn = document.createElement('button');
+                btn.className = `coach-btn bg-${c}`;
+                btn.textContent = coachName(c);
           btn.style.color = '#FFFFFF';
           const checkSelected = isEdit ? () => editingCoach === c : () => selectedCoach === c;
           if (checkSelected()) btn.classList.add('selected');
           btn.onclick = () => {
-                      if (isEdit) {
-                        editingCoach = c;
-                        renderCoachGrid(containerId, true);
-                      } else {
-                        selectedCoach = c;
-                        // 只有「其他」教練才顯示暱稱輸入欄
-                        document.getElementById('nickname-row').style.display = canOverlap(c) ? 'block' : 'none';
-                        renderCoachGrid(containerId, false);
-                      }
-                    };
+                                if (isEdit) {
+                                  editingCoach = c;
+                                  renderCoachGrid(containerId, true, spaceNum);
+                                } else {
+                                  selectedCoach = c;
+                                  // 只有「其他」教練才顯示暱稱輸入欄
+                                  document.getElementById('nickname-row').style.display = canOverlap(c) ? 'block' : 'none';
+                                  renderCoachGrid(containerId, false, spaceNum);
+                                }
+                              };
           grid.appendChild(btn);
         });
       }
@@ -811,54 +816,68 @@
       }
 
       async function createBooking() {
-              if (!checkPassword('pwd-create')) return;
-              if (!selectedCoach) { showToast('請選擇教練代號！'); return; }
-        const { space, slot, dateStr } = editingSlot;
-        const durSlots = durationToSlots(selectedDuration);
+                    if (!checkPassword('pwd-create')) return;
+                    if (!selectedCoach) { showToast('請選擇教練代號！'); return; }
+              const { space, slot, dateStr } = editingSlot;
+              const durSlots = durationToSlots(selectedDuration);
 
-        if (!isSlotWithinBounds(slot, durSlots)) {
-          showToast('預約時段超過營業時間（22:00）！');
-          return;
-        }
-        if (hasConflict(dateStr, space, slot, durSlots, null, selectedCoach)) {
-                          showToast('此時段已有預約衝突！');
-                          return;
-                        }
-                if (hasCoachConflict(dateStr, selectedCoach, slot, durSlots)) {
-                  showToast('⚠️ 該教練此時段已有其他預約！');
-                  return;
+              if (!isSlotWithinBounds(slot, durSlots)) {
+                showToast('預約時段超過營業時間（22:00）！');
+                return;
+              }
+
+              // 團課：需一次檢查三個空間
+              const spacesToBook = selectedCoach === 'C' ? TEAM_SPACES : [space];
+              if (selectedCoach === 'C' && !TEAM_SPACES.includes(space)) {
+                showToast('團課僅限二樓自由重量區！'); return;
+              }
+
+              // 檢查所有目標空間的衝突
+              for (const sp of spacesToBook) {
+                if (hasConflict(dateStr, sp, slot, durSlots, null, selectedCoach)) {
+                  showToast(`${spaceName(sp)} 此時段已有預約衝突！`); return;
                 }
+              }
+              if (hasCoachConflict(dateStr, selectedCoach, slot, durSlots)) {
+                showToast('⚠️ 該教練此時段已有其他預約！');
+                return;
+              }
 
+              const groupId = (selectedCoach === 'C') ? 'team_' + Date.now() : null;
+              const remark = document.getElementById('remark-input').value.trim();
+
+              for (const sp of spacesToBook) {
                 const booking = {
-                  space, coach: selectedCoach, time: slotToTime(slot),
+                  space: sp, coach: selectedCoach, time: slotToTime(slot),
                   duration: selectedDuration, createdAt: Date.now()
                 };
-                // 「其他」教練需記錄暱稱
-                                if (canOverlap(selectedCoach)) {
-                                  const nick = document.getElementById('nickname-input').value.trim();
-                                  if (!nick) { showToast('請輸入暱稱！'); return; }
-                                  booking.nickname = nick;
-                                }
-                                const remark = document.getElementById('remark-input').value.trim();
-                                if (remark) booking.remark = remark;
+                if (groupId) booking.groupId = groupId;
+                if (canOverlap(selectedCoach)) {
+                  const nick = document.getElementById('nickname-input').value.trim();
+                  if (!nick) { showToast('請輸入暱稱！'); return; }
+                  booking.nickname = nick;
+                }
+                if (remark) booking.remark = remark;
 
-        if (window.USE_FALLBACK) {
-          if (!bookmarks[dateStr]) bookmarks[dateStr] = [];
-          booking.id = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-          bookmarks[dateStr].push(booking);
-          saveFallbackBookings();
-        } else {
-          const dbRef = window._ref(window.db, `bookings/${dateStr}`);
-          const newRef = window._push(dbRef);
-                    booking.id = newRef.key;
-                    if (!await fbSet(newRef, booking)) return;
-        }
+                if (window.USE_FALLBACK) {
+                  if (!bookmarks[dateStr]) bookmarks[dateStr] = [];
+                  booking.id = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+                  bookmarks[dateStr].push(booking);
+                  saveFallbackBookings();
+                } else {
+                  const dbRef = window._ref(window.db, `bookings/${dateStr}`);
+                  const newRef = window._push(dbRef);
+                  booking.id = newRef.key;
+                  if (!await fbSet(newRef, booking)) return;
+                }
+              }
 
-        closeModal();
-                showToast(`✅ 預約成功：${spaceName(space)} ${booking.time} ${booking.nickname || coachName(selectedCoach)}`);
-        if (window.USE_FALLBACK) { bookings = bookmarks; }
-        switchView(currentView);
-      }
+              closeModal();
+                            const label = selectedCoach === 'C' ? '團課' : coachName(selectedCoach);
+                            showToast(`✅ 預約成功：${spaceName(space)} ${slotToTime(slot)} ${label}`);
+                            if (window.USE_FALLBACK) { bookings = bookmarks; }
+                            switchView(currentView);
+            }
 
       // ====== MODAL: EDIT ======
       function openEditModal(booking, dateStr) {
@@ -874,7 +893,7 @@
                             document.getElementById('modal-edit').style.display = 'block';
                             document.getElementById('booking-info').innerHTML =
                               `📅 ${fmtDateCN(new Date(dateStr))}<br>🏠 ${spaceName(booking.space)} · ⏰ ${booking.time}<br>👤 教練 ${coachName(booking.coach)} · ⏱️ ${booking.duration} 分鐘${booking.remark ? '<br>📝 ' + booking.remark : ''}`;
-        renderCoachGrid('coach-grid-edit', true);
+        renderCoachGrid('coach-grid-edit', true, booking.space);
                 selectDurationEdit(booking.duration);
                 // 行政時段 vs 一般時段：切換時長選擇器
                 const isAdminEdit = isAdminSpace(booking.space);
@@ -929,20 +948,37 @@
       }
 
       async function deleteBooking() {
-              if (!checkPassword('pwd-edit')) return;
-              const { dateStr } = editingSlot;
-        if (window.USE_FALLBACK) {
-          const list = bookmarks[dateStr] || [];
-          bookmarks[dateStr] = list.filter(b => b.id !== editingBookingId);
-          saveFallbackBookings();
-        } else {
-          if (!await fbRemove(window._ref(window.db, `bookings/${dateStr}/${editingBookingId}`))) return;
-        }
-        closeModal();
-        showToast('🗑️ 已取消預約');
-        if (window.USE_FALLBACK) { bookings = bookmarks; }
-        switchView(currentView);
-      }
+                    if (!checkPassword('pwd-edit')) return;
+                    const { dateStr } = editingSlot;
+
+              // 團課：找出所有同 groupId 的預約一併刪除
+              const allList = getBookingsForDate(dateStr);
+              const target = allList.find(b => b.id === editingBookingId);
+              const groupId = target?.groupId;
+
+              if (window.USE_FALLBACK) {
+                const list = bookmarks[dateStr] || [];
+                if (groupId) {
+                  bookmarks[dateStr] = list.filter(b => b.groupId !== groupId);
+                } else {
+                  bookmarks[dateStr] = list.filter(b => b.id !== editingBookingId);
+                }
+                saveFallbackBookings();
+              } else {
+                if (groupId) {
+                  const targets = allList.filter(b => b.groupId === groupId);
+                  for (const b of targets) {
+                    if (!await fbRemove(window._ref(window.db, `bookings/${dateStr}/${b.id}`))) return;
+                  }
+                } else {
+                  if (!await fbRemove(window._ref(window.db, `bookings/${dateStr}/${editingBookingId}`))) return;
+                }
+              }
+              closeModal();
+              showToast(groupId ? '🗑️ 已取消團課' : '🗑️ 已取消預約');
+              if (window.USE_FALLBACK) { bookings = bookmarks; }
+              switchView(currentView);
+            }
 
       function closeModal() {
               document.getElementById('modal-overlay').classList.remove('active');
