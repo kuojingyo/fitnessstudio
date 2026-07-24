@@ -287,6 +287,7 @@
     </style>
   </head>
   <body>
+    <div id="schedule-redesign"></div>
     <!-- Header -->
     <header>
       <div class="logo">RELIFE Fitness · 排課系統</div>
@@ -404,7 +405,9 @@
         appId: "1:608012988598:web:eaf9c284851f95f0d27617",
         measurementId: "G-G1WBW50XF1"
       };
+      window.RELIFE_FIREBASE_CONFIG = firebaseConfig;
 
+      if (false) {
       window.USE_FALLBACK = false;
 
       if (!window.USE_FALLBACK) {
@@ -1161,6 +1164,8 @@
       window.updateBooking = updateBooking;
       window.deleteBooking = deleteBooking;
       window.closeModal = closeModal;
+      }
     </script>
+    <script type="module" src="/src/schedule-redesign.js"></script>
   </body>
 </html>
