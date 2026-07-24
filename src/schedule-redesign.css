@@ -62,6 +62,7 @@ body > header, body > #app, body > .modal-overlay, body > .loading, body > .toas
 .rs-secondary:hover { border-color: var(--rs-sage); background: var(--rs-sage-light); }
 .rs-danger-btn { background: var(--rs-danger-light); color: var(--rs-danger); }
 .rs-danger-btn:hover { background: var(--rs-danger); color: var(--rs-white); }
+.rs-danger-btn.confirming { background: var(--rs-danger); color: var(--rs-white); box-shadow: 0 0 0 3px rgba(199,84,80,.2); }
 .rs-login .rs-primary { width: 100%; margin-top: 1.2rem; }
 .rs-error { min-height: 1.25rem; color: var(--rs-danger); font-size: .8rem; margin-top: .7rem; }
 .rs-app-shell { min-height: 100vh; }
@@ -101,6 +102,7 @@ body > header, body > #app, body > .modal-overlay, body > .loading, body > .toas
 .rs-day-item.admin { background:#EEE8F3; color:#5C476C; }
 .rs-day-item.coach { background:#FCE8E7; color:#7B3836; }
 .rs-day-item.team { background:#E5F2FC; color:#285A7F; }
+.rs-day-item.high { background:#FFE0B2; color:#9A4B00; }
 .rs-day-empty { color:#A0968B; font-size:.66rem; margin-top:.5rem; }
 .rs-stats { margin-top:1rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:.7rem; }
 .rs-stat-card { background:var(--rs-white); border:1px solid var(--rs-border); border-radius:9px; padding:.8rem; }
@@ -124,6 +126,7 @@ body > header, body > #app, body > .modal-overlay, body > .loading, body > .toas
 .rs-slot.booked.admin { background:var(--rs-admin); }
 .rs-slot.booked.coach { background:var(--rs-coach); }
 .rs-slot.booked.team { background:var(--rs-team); }
+.rs-slot.booked.high { background:#F28C28; }
 .rs-slot.booked:hover { filter:brightness(1.08); }
 .rs-slot small { display:block; font-size:.62rem; font-weight:500; opacity:.9; }
 .rs-slot .rs-remark { font-size:.65rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 .15rem; }

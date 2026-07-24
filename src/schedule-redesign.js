@@ -284,7 +284,7 @@ function monthDayHtml(date, other) {
   if (isToday(date)) classes.push('today');
   if (selectedDateKey === key) classes.push('selected');
   const items = other ? [] : monthBookingsForUser(key);
-  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')}"><strong>${courseLabel(b)}：</strong>${b.time}–${endTime(b.time, b.duration)}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
+  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${b.owner === '高芷妍' ? 'high' : ''}"><strong>${courseLabel(b)}：</strong>${b.time}–${endTime(b.time, b.duration)}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
   return `<div class="${classes.join(' ')}" data-date="${key}"><div class="rs-day-number">${date.getDate()}</div>${content}</div>`;
 }
 function statsForOwner(owner, year, month) {
@@ -335,7 +335,7 @@ function renderDayView(main) {
       }
       const display = `${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}`;
       const remark = booking.remark ? `<div class="rs-remark">📝 ${escapeHtml(booking.remark)}</div>` : '';
-      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')}" rowspan="${durationToSlots(booking.duration)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${booking.time}–${endTime(booking.time, booking.duration)}</small>${remark}</td>`;
+      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${booking.owner === '高芷妍' ? 'high' : ''}" rowspan="${durationToSlots(booking.duration)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${booking.time}–${endTime(booking.time, booking.duration)}</small>${remark}</td>`;
     }
     html += '</tr>';
   }
@@ -453,6 +453,14 @@ async function submitBooking() {
 async function deleteCurrentBooking() {
   const state = modalState;
   if (!state || state.mode !== 'edit') return;
+  const button = $('#rs-delete');
+  if (!button?.dataset.confirming) {
+    button.dataset.confirming = '1';
+    button.textContent = '再次確認取消';
+    button.classList.add('confirming');
+    showToast('請再次按下「再次確認取消」才會刪除排課');
+    return;
+  }
   const groupId = state.booking.groupId;
   const removeIds = groupId ? allBookingsForDate(state.dateKey).filter(b => b.groupId === groupId).map(b => b.id) : [state.booking.id];
   const ok = await persistChanges(state.dateKey, removeIds, []);
