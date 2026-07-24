@@ -90,7 +90,7 @@ body > header, body > #app, body > .modal-overlay, body > .loading, body > .toas
 .rs-month-grid { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:5px; }
 .rs-weekday { padding:.45rem .2rem; text-align:center; color:var(--rs-muted); font-size:.76rem; font-weight:800; }
 .rs-month-day {
-  height: 90px; min-height: 90px; padding:.55rem; border:1px solid var(--rs-border); border-radius:8px; background:var(--rs-white);
+  height: 150px; min-height: 150px; padding:.55rem; border:1px solid var(--rs-border); border-radius:8px; background:var(--rs-white);
   cursor:pointer; transition:.18s ease; overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; scrollbar-color:var(--rs-sage) transparent;
 }
 .rs-month-day:hover { border-color:var(--rs-sage); box-shadow:0 2px 8px rgba(0,0,0,.08); }
@@ -155,7 +155,7 @@ body > header, body > #app, body > .modal-overlay, body > .loading, body > .toas
   .rs-nav-btn { flex:1; }
   .rs-main { padding:.65rem; }
   .rs-month-grid { gap:3px; }
-  .rs-month-day { height:60px; min-height:60px; padding:.35rem; }
+  .rs-month-day { height:110px; min-height:110px; padding:.35rem; }
   .rs-month-day.today { padding:calc(.35rem - 1px); }
   .rs-day-number { font-size:.82rem; }
   .rs-day-item { font-size:.58rem; padding:.2rem; }
