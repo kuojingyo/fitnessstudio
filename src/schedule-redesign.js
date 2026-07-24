@@ -351,11 +351,14 @@ function renderDayView(main) {
 function buildModal(mode, booking, space, slot, dateKey) {
   const editing = mode === 'edit';
   const owner = editing ? booking.owner : (isAdmin() ? 'admin' : '高芷妍');
-  const kind = editing ? (booking.kind || 'coach') : 'coach';
+  const kind = editing ? (booking.kind || (isAdminSpace(space) ? 'admin' : 'coach')) : (isAdminSpace(space) ? 'admin' : 'coach');
   const durations = isAdminSpace(space) ? ADMIN_DURATIONS : COACH_DURATIONS;
   const duration = editing ? Number(booking.duration) : (isAdminSpace(space) ? 90 : 75);
   const owners = ownerChoices();
-  const canChangeKind = !isAdminSpace(space);
+  const canChangeKind = isTeamSpace(space);
+  const kindOptions = isAdminSpace(space)
+    ? '<option value="admin" selected>行政</option>'
+    : `<option value="coach" ${kind === 'coach' ? 'selected' : ''}>一般教練課</option>${canChangeKind ? `<option value="team" ${kind === 'team' ? 'selected' : ''}>團課</option>` : ''}`;
   const title = editing ? '修改／取消排課' : '新增排課';
   const info = editing ? `${spaceName(booking.space)} · ${booking.time}–${endTime(booking.time, booking.duration)} · ${ownerLabel(booking)}${booking.kind === 'team' ? '（團課）' : ''}` : `${spaceName(space)} · ${slotToTime(slot)} · ${formatDateCN(parseDate(dateKey))}`;
   return `<div class="rs-modal-overlay" id="rs-modal-overlay"><form class="rs-modal" id="rs-booking-form">
@@ -363,7 +366,7 @@ function buildModal(mode, booking, space, slot, dateKey) {
     ${editing ? `<div class="rs-info-box">📅 ${formatDateCN(parseDate(dateKey))}<br>🏠 ${spaceName(booking.space)}<br>👤 ${escapeHtml(ownerLabel(booking))}</div>` : ''}
     <label for="rs-owner">使用者</label><select id="rs-owner">${owners.map(item => `<option value="${escapeHtml(item)}" ${item === owner ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}</select>
     <div id="rs-nickname-row" class="${owner === OTHER_OWNER ? '' : 'rs-hidden'}"><label for="rs-nickname">其他暱稱</label><input id="rs-nickname" value="${escapeHtml(editing ? (booking.nickname || '') : '')}" placeholder="例如：小明"></div>
-    <label for="rs-kind">課程類型</label><select id="rs-kind" ${canChangeKind ? '' : 'disabled'}><option value="coach" ${kind === 'coach' ? 'selected' : ''}>一般教練課</option>${canChangeKind ? `<option value="team" ${kind === 'team' ? 'selected' : ''}>團課</option>` : ''}</select>
+    <label for="rs-kind">課程類型</label><select id="rs-kind" ${canChangeKind ? '' : 'disabled'}>${kindOptions}</select>
     <div id="rs-team-note" class="rs-permission-note ${kind === 'team' ? '' : 'rs-hidden'}">團課會同時佔用二樓自由重量(1)、二樓自由重量(2)、二樓機動空間。</div>
     <label for="rs-duration">課程時長</label><select id="rs-duration">${durations.map(item => `<option value="${item}" ${item === duration ? 'selected' : ''}>${isAdminSpace(space) ? `${item / 60} 小時` : `${item} 分鐘`}</option>`).join('')}</select>
     <label for="rs-remark">📝 備註</label><input id="rs-remark" value="${escapeHtml(editing ? (booking.remark || '') : '')}" placeholder="選填，例如：體驗課、調整姿勢">
@@ -412,7 +415,8 @@ function targetSpaces(kind, space) { return kind === 'team' ? TEAM_SPACES : [Num
 function validateBooking(values, state, existingIds = []) {
   if (values.owner === OTHER_OWNER && !values.nickname) return '請輸入「其他」的暱稱。';
   if (values.kind === 'team' && !isTeamSpace(state.space)) return '團課只能安排在二樓自由重量區。';
-  if (isAdminSpace(state.space) && values.kind !== 'coach') return '行政時段只能使用一般教練課類型。';
+  if (isAdminSpace(state.space) && values.kind !== 'admin') return '行政時段只能使用行政類型。';
+  if (!isAdminSpace(state.space) && values.kind === 'admin') return '一般空間不能使用行政類型。';
   if (!validateRange(state.slot, values.duration)) return '預約時段超過 22:00，請縮短課程或更換時間。';
   const list = allBookingsForDate(state.dateKey);
   const spaces = targetSpaces(values.kind, state.space);
