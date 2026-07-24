@@ -367,7 +367,6 @@ function buildModal(mode, booking, space, slot, dateKey) {
     <div id="rs-team-note" class="rs-permission-note ${kind === 'team' ? '' : 'rs-hidden'}">團課會同時佔用二樓自由重量(1)、二樓自由重量(2)、二樓機動空間。</div>
     <label for="rs-duration">課程時長</label><select id="rs-duration">${durations.map(item => `<option value="${item}" ${item === duration ? 'selected' : ''}>${isAdminSpace(space) ? `${item / 60} 小時` : `${item} 分鐘`}</option>`).join('')}</select>
     <label for="rs-remark">📝 備註</label><input id="rs-remark" value="${escapeHtml(editing ? (booking.remark || '') : '')}" placeholder="選填，例如：體驗課、調整姿勢">
-    <label for="rs-password">🔐 編輯密碼</label><input id="rs-password" type="password" inputmode="numeric" placeholder="請輸入密碼">
     <div class="rs-modal-actions"><button type="button" class="rs-secondary" id="rs-modal-cancel">關閉</button>${editing && canDeleteBooking(booking) ? '<button type="button" class="rs-danger-btn" id="rs-delete">取消排課</button>' : ''}<button type="submit" class="rs-primary">${editing ? '確認修改' : '確認預約'}</button></div>
   </form></div>`;
 }
@@ -397,13 +396,11 @@ function mountModal() {
   kind.addEventListener('change', () => $('#rs-team-note').classList.toggle('rs-hidden', kind.value !== 'team'));
   form.addEventListener('submit', event => { event.preventDefault(); submitBooking(); });
   $('#rs-delete')?.addEventListener('click', deleteCurrentBooking);
-  $('#rs-password').focus();
 }
 function closeModal() { modalState = null; const host = $('#rs-modal-host'); if (host) host.innerHTML = ''; }
 function readModalValues() {
-  return { owner: $('#rs-owner').value, nickname: $('#rs-nickname').value.trim(), kind: $('#rs-kind').value, duration: Number($('#rs-duration').value), remark: $('#rs-remark').value.trim(), password: $('#rs-password').value };
+  return { owner: $('#rs-owner').value, nickname: $('#rs-nickname').value.trim(), kind: $('#rs-kind').value, duration: Number($('#rs-duration').value), remark: $('#rs-remark').value.trim() };
 }
-function checkEditPassword(password) { return PASSWORDS.admin === password; }
 function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, remark, time, groupId }) {
   const result = { id, date: dateKey, space: Number(space), owner, kind, duration: Number(duration), time, createdAt: Date.now() };
   if (nickname) result.nickname = nickname;
@@ -413,7 +410,6 @@ function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, rema
 }
 function targetSpaces(kind, space) { return kind === 'team' ? TEAM_SPACES : [Number(space)]; }
 function validateBooking(values, state, existingIds = []) {
-  if (!checkEditPassword(values.password)) return '密碼錯誤，無法儲存排課。';
   if (values.owner === OTHER_OWNER && !values.nickname) return '請輸入「其他」的暱稱。';
   if (values.kind === 'team' && !isTeamSpace(state.space)) return '團課只能安排在二樓自由重量區。';
   if (isAdminSpace(state.space) && values.kind !== 'coach') return '行政時段只能使用一般教練課類型。';
@@ -453,8 +449,6 @@ async function submitBooking() {
 async function deleteCurrentBooking() {
   const state = modalState;
   if (!state || state.mode !== 'edit') return;
-  const password = $('#rs-password').value;
-  if (!checkEditPassword(password)) { showToast('❌ 密碼錯誤，無法取消排課。'); return; }
   const groupId = state.booking.groupId;
   const removeIds = groupId ? allBookingsForDate(state.dateKey).filter(b => b.groupId === groupId).map(b => b.id) : [state.booking.id];
   const ok = await persistChanges(state.dateKey, removeIds, []);
