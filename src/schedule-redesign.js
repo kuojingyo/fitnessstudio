@@ -456,9 +456,9 @@ async function deleteCurrentBooking() {
   const button = $('#rs-delete');
   if (!button?.dataset.confirming) {
     button.dataset.confirming = '1';
-    button.textContent = '再次確認取消';
+    button.textContent = '再次確認';
     button.classList.add('confirming');
-    showToast('請再次按下「再次確認取消」才會刪除排課');
+    showToast('請再次按下「再次確認」才會刪除排課');
     return;
   }
   const groupId = state.booking.groupId;
