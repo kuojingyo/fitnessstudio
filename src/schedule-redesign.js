@@ -26,7 +26,6 @@ let currentView = 'month';
 let selectedDateKey = null;
 let modalState = null;
 let toastTimer = null;
-const mobileViewport = window.matchMedia('(max-width: 800px)');
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -326,42 +325,10 @@ function renderStats(container, year, month) {
 function findBookingAtSlot(dateKey, space, slot) {
   return allBookingsForDate(dateKey).find(b => Number(b.space) === Number(space) && timeToSlot(b.time) <= slot && slot < timeToSlot(b.time) + durationToSlots(b.duration));
 }
-function renderMobileDayBookings(dateKey) {
-  const bookings = uniqueTeamBookings(allBookingsForDate(dateKey)).sort((a, b) => timeToSlot(a.time) - timeToSlot(b.time));
-  if (!bookings.length) {
-    return '<section class="rs-mobile-day-list" aria-label="當日預約"><h2>當日預約</h2><div class="rs-mobile-empty">這一天尚無預約</div></section>';
-  }
-  return `<section class="rs-mobile-day-list" aria-label="當日預約"><h2>當日預約</h2><div class="rs-mobile-bookings">${bookings.map(booking => {
-    const editable = canEditBooking(booking);
-    const type = booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach');
-    return `<article class="rs-mobile-booking ${type} ${editable ? 'is-editable' : ''}" ${editable ? `data-booking-id="${escapeHtml(booking.id)}" role="button" tabindex="0" aria-label="編輯 ${escapeHtml(ownerLabel(booking))} 的預約"` : ''}>
-      <div class="rs-mobile-booking-time">${booking.time} – ${endTime(booking.time, booking.duration)}</div>
-      <dl class="rs-mobile-booking-details">
-        <div><dt>空間</dt><dd>${escapeHtml(spaceName(booking.space))}</dd></div>
-        <div><dt>課程類型</dt><dd>${escapeHtml(courseLabel(booking))}</dd></div>
-        <div><dt>教練／預約名稱</dt><dd>${escapeHtml(ownerLabel(booking))}</dd></div>
-        <div><dt>備註</dt><dd>${booking.remark ? escapeHtml(booking.remark) : '—'}</dd></div>
-      </dl>
-    </article>`;
-  }).join('')}</div></section>`;
-}
 function renderDayView(main) {
   const dateKey = fmtDate(currentDate);
   let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表`);
   html += `<div class="rs-permission-note">${isAdmin() ? '管理員：可編輯所有排課。' : '一般使用者：可編輯教練課與「其他」課程；行政時段僅管理員可編輯。'}</div>`;
-  if (mobileViewport.matches) {
-    main.innerHTML = html + renderMobileDayBookings(dateKey);
-    attachDateNav(main);
-    $$('[data-booking-id]', main).forEach(card => {
-      const openBooking = () => {
-        const booking = allBookingsForDate(dateKey).find(item => item.id === card.dataset.bookingId);
-        if (booking) openEditModal(booking, dateKey);
-      };
-      card.addEventListener('click', openBooking);
-      card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openBooking(); } });
-    });
-    return;
-  }
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
   for (let slot = 0; slot < SLOTS_PER_DAY; slot++) {
     html += `<tr class="${slot % 4 === 0 ? 'hour' : ''}"><td class="time">${slotToTime(slot)}</td>`;
@@ -516,11 +483,5 @@ function boot() {
   if (currentUser) renderCurrentView();
   initDataLayer();
 }
-
-mobileViewport.addEventListener('change', () => {
-  if (!isLoggedIn()) return;
-  renderRoot();
-  renderCurrentView();
-});
 
 boot();

@@ -112,7 +112,7 @@ body > header, body > #app, body > .modal-overlay, body > .loading, body > .toas
 .rs-stat-line { display:flex; justify-content:space-between; gap:.5rem; padding:.25rem 0; font-size:.78rem; border-top:1px solid #EEE8E0; }
 .rs-stat-line:first-of-type { border-top:0; }
 .rs-stat-value { font-weight:800; }
-.rs-table-wrap { width:100%; max-width:100%; min-width:0; overflow:auto; max-height:calc(100vh - 165px); border:1px solid var(--rs-border); border-radius:9px; background:var(--rs-white); }
+.rs-table-wrap { width:100%; max-width:100%; min-width:0; overflow-x:auto; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain; max-height:calc(100vh - 165px); border:1px solid var(--rs-border); border-radius:9px; background:var(--rs-white); }
 .rs-day-table { table-layout:fixed; border-collapse:separate; border-spacing:0; width:100%; min-width:1050px; font-size:.76rem; }
 .rs-day-table th, .rs-day-table td { border-bottom:1px solid var(--rs-border); border-right:1px solid var(--rs-border); text-align:center; }
 .rs-day-table thead th { position:sticky; top:0; z-index:5; background:var(--rs-walnut); color:var(--rs-oatmeal); padding:.55rem .25rem; font-size:.72rem; }
@@ -134,7 +134,6 @@ body > header, body > #app, body > .modal-overlay, body > .loading, body > .toas
 .rs-slot .rs-remark { font-size:.65rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 .15rem; }
 .rs-current-time { box-shadow:inset 0 -2px 0 var(--rs-accent); }
 .rs-permission-note { margin:0 0 .75rem; padding:.6rem .75rem; border-radius:8px; background:var(--rs-sage-light); color:var(--rs-sage-dark); font-size:.78rem; }
-.rs-mobile-day-list { display:none; }
 .rs-modal-overlay { position:fixed; inset:0; z-index:100; display:flex; align-items:flex-start; justify-content:center; padding-top:9vh; overflow:auto; background:rgba(28,20,17,.58); }
 .rs-modal { position:relative; width:min(92%,430px); padding:1.45rem; border-radius:13px; background:var(--rs-white); box-shadow:0 15px 45px rgba(0,0,0,.25); }
 .rs-modal h2 { font-size:1.05rem; margin-bottom:.25rem; }
@@ -172,20 +171,4 @@ body > header, body > #app, body > .modal-overlay, body > .loading, body > .toas
   .rs-day-item { font-size:.58rem; padding:.2rem; }
   .rs-month-day.other .rs-day-item { display:none; }
   .rs-stats { grid-template-columns:minmax(0, 1fr); }
-  .rs-table-wrap { display:none; }
-  .rs-mobile-day-list { display:block; }
-  .rs-mobile-day-list h2 { margin:0 0 .7rem; font-size:1rem; }
-  .rs-mobile-bookings { display:grid; gap:.65rem; }
-  .rs-mobile-booking { border:1px solid var(--rs-border); border-left:5px solid var(--rs-sage); border-radius:10px; background:var(--rs-white); padding:.8rem; }
-  .rs-mobile-booking.admin { border-left-color:var(--rs-admin); }
-  .rs-mobile-booking.coach { border-left-color:var(--rs-coach); }
-  .rs-mobile-booking.team { border-left-color:var(--rs-team); }
-  .rs-mobile-booking.is-editable { cursor:pointer; }
-  .rs-mobile-booking.is-editable:focus-visible { outline:3px solid rgba(139,157,131,.42); outline-offset:2px; }
-  .rs-mobile-booking-time { color:var(--rs-walnut); font-size:1.06rem; font-weight:800; }
-  .rs-mobile-booking-details { display:grid; grid-template-columns:1fr; gap:.42rem; margin:.7rem 0 0; }
-  .rs-mobile-booking-details div { display:grid; grid-template-columns:6.75rem minmax(0, 1fr); gap:.5rem; }
-  .rs-mobile-booking-details dt { color:var(--rs-muted); font-size:.77rem; font-weight:700; }
-  .rs-mobile-booking-details dd { min-width:0; margin:0; font-size:.84rem; line-height:1.35; overflow-wrap:anywhere; }
-  .rs-mobile-empty { padding:1.25rem; border:1px dashed var(--rs-border); border-radius:10px; background:var(--rs-white); color:var(--rs-muted); text-align:center; }
 }
