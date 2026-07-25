@@ -153,10 +153,11 @@ body > header, body > #app, body > .modal-overlay, body > .loading, body > .toas
   .rs-header { position:static; height:auto; min-height:0; padding:.75rem; align-items:center; gap:.55rem; }
   .rs-header-brand { flex:1 1 180px; min-width:0; font-size:.75rem; letter-spacing:.12em; }
   .rs-header-user { font-size:.74rem; min-width:0; }
-  .rs-header-actions { width:100%; }
+  .rs-header-actions { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.45rem; }
   .rs-desktop-only { display:none !important; }
   .rs-mobile-view-toggle.rs-nav-btn,
   .rs-mobile-view-toggle.rs-nav-btn.active { display:block; width:100%; min-height:42px; font-size:.9rem; background:var(--rs-sage-light); border-color:var(--rs-sage); color:var(--rs-walnut); font-weight:700; }
+  .rs-header-actions .rs-logout { display:block; min-height:42px; padding:.45rem .8rem; font-size:.9rem; white-space:nowrap; }
   .rs-main { width:100%; max-width:100%; padding:.75rem; overflow-x:clip; }
   .rs-toolbar { align-items:stretch; }
   .rs-toolbar-title { font-size:1.05rem; }

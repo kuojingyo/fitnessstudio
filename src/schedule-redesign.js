@@ -218,7 +218,7 @@ function renderShell(root) {
         <button class="rs-mobile-view-toggle rs-nav-btn active" id="rs-mobile-view-toggle">${currentView === 'month' ? '查看當日預約' : '返回月檢視'}</button>
         <button class="rs-nav-btn rs-desktop-only ${currentView === 'month' ? 'active' : ''}" id="rs-month-btn">我的月檢視</button>
         <button class="rs-nav-btn rs-desktop-only ${currentView === 'day' ? 'active' : ''}" id="rs-day-btn">全館日檢視</button>
-        <button class="rs-logout rs-desktop-only" id="rs-logout">登出</button>
+        <button class="rs-logout" id="rs-logout">登出</button>
       </div>
     </header>
     <main class="rs-main" id="rs-main"></main>
