@@ -26,6 +26,7 @@ let currentView = 'month';
 let selectedDateKey = null;
 let modalState = null;
 let toastTimer = null;
+const mobileViewport = window.matchMedia('(max-width: 800px)');
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -215,15 +216,22 @@ function renderShell(root) {
       <div class="rs-header-brand">RELIFE Fitness · 排課系統</div>
       <div class="rs-header-user"><span>${escapeHtml(currentUser.name)}</span><span class="rs-role-pill">${currentUser.role === 'admin' ? '管理員' : '一般使用者'}</span></div>
       <div class="rs-header-actions">
-        <button class="rs-nav-btn ${currentView === 'month' ? 'active' : ''}" id="rs-month-btn">我的月檢視</button>
-        <button class="rs-nav-btn ${currentView === 'day' ? 'active' : ''}" id="rs-day-btn">全館日檢視</button>
-        <button class="rs-logout" id="rs-logout">登出</button>
+        <button class="rs-mobile-view-toggle rs-nav-btn active" id="rs-mobile-view-toggle">${currentView === 'month' ? '查看當日預約' : '返回月檢視'}</button>
+        <button class="rs-nav-btn rs-desktop-only ${currentView === 'month' ? 'active' : ''}" id="rs-month-btn">我的月檢視</button>
+        <button class="rs-nav-btn rs-desktop-only ${currentView === 'day' ? 'active' : ''}" id="rs-day-btn">全館日檢視</button>
+        <button class="rs-logout rs-desktop-only" id="rs-logout">登出</button>
       </div>
     </header>
     <main class="rs-main" id="rs-main"></main>
     <div id="rs-modal-host"></div>
     <div class="rs-toast" id="rs-toast"></div>
   </div>`;
+  $('#rs-mobile-view-toggle').addEventListener('click', () => {
+    currentView = currentView === 'month' ? 'day' : 'month';
+    selectedDateKey = null;
+    renderRoot();
+    renderCurrentView();
+  });
   $('#rs-month-btn').addEventListener('click', () => { currentView = 'month'; renderCurrentView(); });
   $('#rs-day-btn').addEventListener('click', () => { currentView = 'day'; selectedDateKey = null; renderCurrentView(); });
   $('#rs-logout').addEventListener('click', logout);
@@ -273,7 +281,7 @@ function renderMonthView(main) {
   $$('.rs-month-day:not(.other)', main).forEach(day => day.addEventListener('click', () => {
     const key = day.dataset.date;
     if (selectedDateKey === key) { currentDate = parseDate(key); currentView = 'day'; selectedDateKey = null; renderRoot(); renderCurrentView(); }
-    else { selectedDateKey = key; $$('.rs-month-day.selected', main).forEach(item => item.classList.remove('selected')); day.classList.add('selected'); }
+    else { currentDate = parseDate(key); selectedDateKey = key; $$('.rs-month-day.selected', main).forEach(item => item.classList.remove('selected')); day.classList.add('selected'); }
   }));
   renderStats($('#rs-stats', main), year, month);
 }
@@ -318,10 +326,42 @@ function renderStats(container, year, month) {
 function findBookingAtSlot(dateKey, space, slot) {
   return allBookingsForDate(dateKey).find(b => Number(b.space) === Number(space) && timeToSlot(b.time) <= slot && slot < timeToSlot(b.time) + durationToSlots(b.duration));
 }
+function renderMobileDayBookings(dateKey) {
+  const bookings = uniqueTeamBookings(allBookingsForDate(dateKey)).sort((a, b) => timeToSlot(a.time) - timeToSlot(b.time));
+  if (!bookings.length) {
+    return '<section class="rs-mobile-day-list" aria-label="當日預約"><h2>當日預約</h2><div class="rs-mobile-empty">這一天尚無預約</div></section>';
+  }
+  return `<section class="rs-mobile-day-list" aria-label="當日預約"><h2>當日預約</h2><div class="rs-mobile-bookings">${bookings.map(booking => {
+    const editable = canEditBooking(booking);
+    const type = booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach');
+    return `<article class="rs-mobile-booking ${type} ${editable ? 'is-editable' : ''}" ${editable ? `data-booking-id="${escapeHtml(booking.id)}" role="button" tabindex="0" aria-label="編輯 ${escapeHtml(ownerLabel(booking))} 的預約"` : ''}>
+      <div class="rs-mobile-booking-time">${booking.time} – ${endTime(booking.time, booking.duration)}</div>
+      <dl class="rs-mobile-booking-details">
+        <div><dt>空間</dt><dd>${escapeHtml(spaceName(booking.space))}</dd></div>
+        <div><dt>課程類型</dt><dd>${escapeHtml(courseLabel(booking))}</dd></div>
+        <div><dt>教練／預約名稱</dt><dd>${escapeHtml(ownerLabel(booking))}</dd></div>
+        <div><dt>備註</dt><dd>${booking.remark ? escapeHtml(booking.remark) : '—'}</dd></div>
+      </dl>
+    </article>`;
+  }).join('')}</div></section>`;
+}
 function renderDayView(main) {
   const dateKey = fmtDate(currentDate);
   let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表`);
   html += `<div class="rs-permission-note">${isAdmin() ? '管理員：可編輯所有排課。' : '一般使用者：可編輯教練課與「其他」課程；行政時段僅管理員可編輯。'}</div>`;
+  if (mobileViewport.matches) {
+    main.innerHTML = html + renderMobileDayBookings(dateKey);
+    attachDateNav(main);
+    $$('[data-booking-id]', main).forEach(card => {
+      const openBooking = () => {
+        const booking = allBookingsForDate(dateKey).find(item => item.id === card.dataset.bookingId);
+        if (booking) openEditModal(booking, dateKey);
+      };
+      card.addEventListener('click', openBooking);
+      card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openBooking(); } });
+    });
+    return;
+  }
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
   for (let slot = 0; slot < SLOTS_PER_DAY; slot++) {
     html += `<tr class="${slot % 4 === 0 ? 'hour' : ''}"><td class="time">${slotToTime(slot)}</td>`;
@@ -476,5 +516,11 @@ function boot() {
   if (currentUser) renderCurrentView();
   initDataLayer();
 }
+
+mobileViewport.addEventListener('change', () => {
+  if (!isLoggedIn()) return;
+  renderRoot();
+  renderCurrentView();
+});
 
 boot();
