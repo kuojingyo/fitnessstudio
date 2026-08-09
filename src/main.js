@@ -1,11 +1,11 @@
-import './style.css';
-
-console.log('Scroll reveal script loaded (Intersection Observer mode)');
-
 function initScrollReveal() {
   const reveals = document.querySelectorAll('.reveal');
-  console.log(`Found ${reveals.length} scroll-reveal elements`);
   if (reveals.length === 0) return;
+
+  if (typeof window.IntersectionObserver !== 'function') {
+    reveals.forEach(element => element.classList.add('active'));
+    return;
+  }
 
   const observerOptions = {
     root: null,
@@ -31,9 +31,42 @@ function initScrollReveal() {
   });
 }
 
-// 確保在 DOM 可操作時立即執行
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initScrollReveal);
-} else {
+function initStickyCta() {
+  const cta = document.getElementById('sticky-cta');
+  if (!cta) return;
+
+  let isVisible = null;
+  let framePending = false;
+
+  const update = () => {
+    const shouldShow = window.scrollY > 300;
+    if (shouldShow !== isVisible) {
+      cta.classList.toggle('opacity-100', shouldShow);
+      cta.classList.toggle('translate-y-0', shouldShow);
+      cta.classList.toggle('opacity-0', !shouldShow);
+      cta.classList.toggle('pointer-events-none', !shouldShow);
+      cta.classList.toggle('translate-y-4', !shouldShow);
+      isVisible = shouldShow;
+    }
+    framePending = false;
+  };
+
+  window.addEventListener('scroll', () => {
+    if (framePending) return;
+    framePending = true;
+    window.requestAnimationFrame(update);
+  }, { passive: true });
+
+  update();
+}
+
+function initPage() {
   initScrollReveal();
+  initStickyCta();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPage);
+} else {
+  initPage();
 }

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /schedule.html
+
+Sitemap: https://www.relifefitness.com/sitemap.xml

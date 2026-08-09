@@ -1,4 +1,3 @@
-body > header, body > #app, body > .modal-overlay, body > .loading, body > .toast { display: none !important; }
 :root {
   --rs-walnut: #1C1411;
   --rs-oatmeal: #F5F0E8;
