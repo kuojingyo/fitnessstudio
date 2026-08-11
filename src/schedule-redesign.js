@@ -3,8 +3,13 @@ import './schedule-redesign.css';
 const ROOT_PATH = 'scheduleV2Bookings';
 const FALLBACK_KEY = 'relife_schedule_v2_bookings';
 const SESSION_KEY = 'relife_schedule_user';
-const PASSWORDS = { admin: '0000', '高芷妍': '0000' };
-const USERS = { admin: { name: 'admin', role: 'admin' }, '高芷妍': { name: '高芷妍', role: 'user' } };
+const MANAGER_NAMES = ['老闆', '史昕銓'];
+const PASSWORDS = { '老闆': '1780230', '史昕銓': '0000', '高芷妍': 'kari812615' };
+const USERS = {
+  '老闆': { name: '老闆', role: 'admin' },
+  '史昕銓': { name: '史昕銓', role: 'admin' },
+  '高芷妍': { name: '高芷妍', role: 'user' }
+};
 const OTHER_OWNER = '其他';
 const TEAM_SPACES = [7, 8, 9];
 const SPACES = 9;
@@ -79,7 +84,8 @@ function normalizeBookings(value) {
       const id = String(item.id ?? recordId ?? '').trim();
       const space = Number(item.space);
       const duration = Number(item.duration);
-      const owner = typeof item.owner === 'string' ? item.owner.trim() : '';
+      const storedOwner = typeof item.owner === 'string' ? item.owner.trim() : '';
+      const owner = storedOwner === 'admin' ? '老闆' : storedOwner;
       const time = typeof item.time === 'string' ? item.time.trim() : '';
       const kind = ['admin', 'coach', 'team'].includes(item.kind) ? item.kind : (space === 1 ? 'admin' : 'coach');
       const slot = timeToSlot(time);
@@ -114,7 +120,7 @@ function uniqueTeamBookings(list) {
     return true;
   });
 }
-function ownerChoices() { return isAdmin() ? ['admin', '高芷妍', OTHER_OWNER] : ['高芷妍', OTHER_OWNER]; }
+function ownerChoices() { return isAdmin() ? [...MANAGER_NAMES, '高芷妍', OTHER_OWNER] : ['高芷妍', OTHER_OWNER]; }
 function canCreateAt(space) { return isDataReady() && (isAdmin() || !isAdminSpace(space)); }
 function canEditBooking(booking) {
   if (!currentUser || !isDataReady()) return false;
@@ -267,7 +273,7 @@ function renderLogin(root) {
     <div class="rs-brand">RELIFE FITNESS</div>
     <h1>排課系統登入</h1>
     <p>請選擇使用者並輸入密碼，登入後查看個人月檢視與全館日檢視。</p>
-    <div class="rs-field"><label for="rs-login-user">使用者名稱</label><select id="rs-login-user"><option value="admin">admin</option><option value="高芷妍">高芷妍</option></select></div>
+    <div class="rs-field"><label for="rs-login-user">使用者名稱</label><select id="rs-login-user">${Object.keys(USERS).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')}</select></div>
     <div class="rs-field"><label for="rs-login-password">密碼</label><input id="rs-login-password" type="password" inputmode="numeric" autocomplete="current-password" autofocus></div>
     <div class="rs-error" id="rs-login-error" role="alert" aria-live="polite">${escapeHtml(dataErrorMessage)}</div>
     <button class="rs-primary" type="submit">登入</button>
@@ -396,7 +402,7 @@ function statsForOwner(owner, year, month) {
   return { adminHours: adminMinutes / 60, coachClasses, teamClasses };
 }
 function renderStats(container, year, month) {
-  const owners = isAdmin() ? ['admin', '高芷妍'] : [currentUser.name];
+  const owners = isAdmin() ? [...MANAGER_NAMES, '高芷妍'] : [currentUser.name];
   container.innerHTML = owners.map(owner => {
     const stats = statsForOwner(owner, year, month);
     return `<section class="rs-stat-card"><h3>📊 ${escapeHtml(owner)} 本月統計</h3>
@@ -442,7 +448,7 @@ function renderDayView(main) {
 }
 function buildModal(mode, booking, space, slot, dateKey) {
   const editing = mode === 'edit';
-  const owner = editing ? booking.owner : (isAdmin() ? 'admin' : '高芷妍');
+  const owner = editing ? booking.owner : currentUser.name;
   const kind = editing ? (booking.kind || (isAdminSpace(space) ? 'admin' : 'coach')) : (isAdminSpace(space) ? 'admin' : 'coach');
   const durations = isAdminSpace(space) ? ADMIN_DURATIONS : COACH_DURATIONS;
   const duration = editing ? Number(booking.duration) : (isAdminSpace(space) ? 90 : 75);
