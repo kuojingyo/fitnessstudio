@@ -3,7 +3,7 @@ import './schedule-redesign.css';
 const ROOT_PATH = 'scheduleV2Bookings';
 const FALLBACK_KEY = 'relife_schedule_v2_bookings';
 const SESSION_KEY = 'relife_schedule_user';
-const PASSWORDS = { '老闆': '1780230', '史昕銓': '0000', '高芷妍': 'kari812615' };
+const PASSWORDS = { '老闆': '1564', '史昕銓': '0000', '高芷妍': 'kari812615' };
 const USERS = {
   '老闆': { name: '老闆', role: 'admin' },
   '史昕銓': { name: '史昕銓', role: 'admin' },
