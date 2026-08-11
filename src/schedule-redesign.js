@@ -3,14 +3,15 @@ import './schedule-redesign.css';
 const ROOT_PATH = 'scheduleV2Bookings';
 const FALLBACK_KEY = 'relife_schedule_v2_bookings';
 const SESSION_KEY = 'relife_schedule_user';
-const PASSWORDS = { '老闆': '1564', '史昕銓': '0000', '高芷妍': 'kari812615' };
+const PASSWORDS = { '老闆': '1564', '史昕銓': '1226', '高芷妍': 'kari812615', '潘閱滔': 'e3828736' };
 const USERS = {
   '老闆': { name: '老闆', role: 'admin' },
   '史昕銓': { name: '史昕銓', role: 'admin' },
-  '高芷妍': { name: '高芷妍', role: 'user' }
+  '高芷妍': { name: '高芷妍', role: 'user' },
+  '潘閱滔': { name: '潘閱滔', role: 'user' }
 };
 const OTHER_OWNER = '其他';
-const SCHEDULABLE_USERS = ['史昕銓', '高芷妍'];
+const SCHEDULABLE_USERS = ['史昕銓', '高芷妍', '潘閱滔'];
 const SCHEDULABLE_OWNERS = new Set([...SCHEDULABLE_USERS, OTHER_OWNER]);
 const TEAM_SPACES = [7, 8, 9];
 const SPACES = 9;
@@ -131,7 +132,7 @@ function canEditBooking(booking) {
   if (!currentUser || !isDataReady()) return false;
   if (isAdmin()) return true;
   if (isAdminSpace(booking.space)) return false;
-  return booking.owner === '高芷妍' || booking.owner === OTHER_OWNER;
+  return booking.owner === currentUser.name || booking.owner === OTHER_OWNER;
 }
 function canDeleteBooking(booking) { return canEditBooking(booking); }
 function canUseKind(kind, space) { return kind !== 'team' || isTeamSpace(space); }
@@ -279,7 +280,7 @@ function renderLogin(root) {
     <h1>排課系統登入</h1>
     <p>請選擇使用者並輸入密碼，登入後查看個人月檢視與全館日檢視。</p>
     <div class="rs-field"><label for="rs-login-user">使用者名稱</label><select id="rs-login-user">${Object.keys(USERS).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')}</select></div>
-    <div class="rs-field"><label for="rs-login-password">密碼</label><input id="rs-login-password" type="password" inputmode="numeric" autocomplete="current-password" autofocus></div>
+    <div class="rs-field"><label for="rs-login-password">密碼</label><input id="rs-login-password" type="password" inputmode="text" autocomplete="current-password" autofocus></div>
     <div class="rs-error" id="rs-login-error" role="alert" aria-live="polite">${escapeHtml(dataErrorMessage)}</div>
     <button class="rs-primary" type="submit">登入</button>
   </form></div>`;
@@ -556,6 +557,7 @@ function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, rema
 function targetSpaces(kind, space) { return kind === 'team' ? TEAM_SPACES : [Number(space)]; }
 function validateBooking(values, state, existingIds = []) {
   if (!SCHEDULABLE_OWNERS.has(values.owner)) return '老闆帳號僅供管理，不能被安排課程。';
+  if (!isAdmin() && values.owner !== currentUser.name && values.owner !== OTHER_OWNER) return '一般使用者只能安排自己或「其他」教練的課程。';
   if (values.owner === OTHER_OWNER && !values.nickname) return '請輸入「其他」的暱稱。';
   if (values.kind === 'team' && !isTeamSpace(state.space)) return '團課只能安排在二樓自由重量區。';
   if (isAdminSpace(state.space) && values.kind !== 'admin') return '行政時段只能使用行政類型。';
