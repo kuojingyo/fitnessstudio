@@ -3,7 +3,6 @@ import './schedule-redesign.css';
 const ROOT_PATH = 'scheduleV2Bookings';
 const FALLBACK_KEY = 'relife_schedule_v2_bookings';
 const SESSION_KEY = 'relife_schedule_user';
-const MANAGER_NAMES = ['老闆', '史昕銓'];
 const PASSWORDS = { '老闆': '1780230', '史昕銓': '0000', '高芷妍': 'kari812615' };
 const USERS = {
   '老闆': { name: '老闆', role: 'admin' },
@@ -11,6 +10,8 @@ const USERS = {
   '高芷妍': { name: '高芷妍', role: 'user' }
 };
 const OTHER_OWNER = '其他';
+const SCHEDULABLE_USERS = ['史昕銓', '高芷妍'];
+const SCHEDULABLE_OWNERS = new Set([...SCHEDULABLE_USERS, OTHER_OWNER]);
 const TEAM_SPACES = [7, 8, 9];
 const SPACES = 9;
 const SPACE_NAMES = ['行政時段', '一樓槓座', '一樓史密斯', '一樓cable', '一樓機動空間', '二樓槓座', '二樓自由重量(1)', '二樓自由重量(2)', '二樓機動空間'];
@@ -64,6 +65,7 @@ function ownerLabel(booking) { return booking.owner === OTHER_OWNER ? (booking.n
 function courseLabel(booking) { return booking.kind === 'team' ? '團課' : (booking.space === 1 ? '行政' : '教練課'); }
 function isToday(date) { const now = new Date(); return fmtDate(now) === fmtDate(date); }
 function isAdmin() { return currentUser?.role === 'admin'; }
+function isBossManager() { return currentUser?.name === '老闆'; }
 function isLoggedIn() { return !!currentUser; }
 function isDataReady() { return dataStatus === 'ready'; }
 
@@ -120,7 +122,10 @@ function uniqueTeamBookings(list) {
     return true;
   });
 }
-function ownerChoices() { return isAdmin() ? [...MANAGER_NAMES, '高芷妍', OTHER_OWNER] : ['高芷妍', OTHER_OWNER]; }
+function ownerChoices() {
+  if (isAdmin()) return [...SCHEDULABLE_USERS, OTHER_OWNER];
+  return SCHEDULABLE_USERS.includes(currentUser?.name) ? [currentUser.name, OTHER_OWNER] : [OTHER_OWNER];
+}
 function canCreateAt(space) { return isDataReady() && (isAdmin() || !isAdminSpace(space)); }
 function canEditBooking(booking) {
   if (!currentUser || !isDataReady()) return false;
@@ -301,8 +306,8 @@ function renderShell(root) {
       <div class="rs-header-brand">RELIFE Fitness · 排課系統</div>
       <div class="rs-header-user"><span>${escapeHtml(currentUser.name)}</span><span class="rs-role-pill">${currentUser.role === 'admin' ? '管理員' : '一般使用者'}</span></div>
       <div class="rs-header-actions">
-        <button type="button" class="rs-mobile-view-toggle rs-nav-btn active" id="rs-mobile-view-toggle">${currentView === 'month' ? '查看當日預約' : '返回月檢視'}</button>
-        <button type="button" class="rs-nav-btn rs-desktop-only ${currentView === 'month' ? 'active' : ''}" id="rs-month-btn" aria-pressed="${currentView === 'month'}">我的月檢視</button>
+        <button type="button" class="rs-mobile-view-toggle rs-nav-btn active" id="rs-mobile-view-toggle">${currentView === 'month' ? '查看當日預約' : (isBossManager() ? '返回教練月檢視' : '返回月檢視')}</button>
+        <button type="button" class="rs-nav-btn rs-desktop-only ${currentView === 'month' ? 'active' : ''}" id="rs-month-btn" aria-pressed="${currentView === 'month'}">${isBossManager() ? '教練月檢視' : '我的月檢視'}</button>
         <button type="button" class="rs-nav-btn rs-desktop-only ${currentView === 'day' ? 'active' : ''}" id="rs-day-btn" aria-pressed="${currentView === 'day'}">全館日檢視</button>
         <button type="button" class="rs-logout" id="rs-logout">登出</button>
       </div>
@@ -351,13 +356,14 @@ function attachDateNav(container) {
   $('[data-today]', container)?.addEventListener('click', () => { currentDate = new Date(); selectedDateKey = null; renderCurrentView(); });
 }
 function monthBookingsForUser(dateKey) {
-  const list = bookingsForDate(dateKey).filter(b => b.owner === currentUser.name);
+  const list = bookingsForDate(dateKey).filter(b => isBossManager() ? SCHEDULABLE_OWNERS.has(b.owner) : b.owner === currentUser.name);
   return uniqueTeamBookings(list).sort((a, b) => timeToSlot(a.time) - timeToSlot(b.time));
 }
 function renderMonthView(main) {
   const year = currentDate.getFullYear(), month = currentDate.getMonth();
   const first = new Date(year, month, 1), last = new Date(year, month + 1, 0);
-  let html = renderToolbar('我的月檢視', `${escapeHtml(currentUser.name)} 的行政排班與教練課程`);
+  const bossOverview = isBossManager();
+  let html = renderToolbar(bossOverview ? '教練月檢視' : '我的月檢視', bossOverview ? '查看教練與場租人員的排課概況' : `${escapeHtml(currentUser.name)} 的行政排班與教練課程`);
   html += '<div class="rs-month-grid">' + ['日', '一', '二', '三', '四', '五', '六'].map(day => `<div class="rs-weekday">${day}</div>`).join('') + '</div>';
   html += '<div class="rs-month-grid" id="rs-month-days">';
   for (let i = first.getDay() - 1; i >= 0; i--) html += monthDayHtml(new Date(year, month, -i), true);
@@ -381,7 +387,7 @@ function monthDayHtml(date, other) {
   if (isToday(date)) classes.push('today');
   if (selectedDateKey === key) classes.push('selected');
   const items = other ? [] : monthBookingsForUser(key);
-  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${b.owner === '高芷妍' ? 'high' : ''}"><strong>${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
+  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${b.owner === '高芷妍' ? 'high' : ''}"><strong>${isBossManager() ? `${escapeHtml(ownerLabel(b))}｜` : ''}${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
   return `<div class="${classes.join(' ')}" data-date="${key}"><div class="rs-day-number">${date.getDate()}</div>${content}</div>`;
 }
 function statsForOwner(owner, year, month) {
@@ -402,7 +408,7 @@ function statsForOwner(owner, year, month) {
   return { adminHours: adminMinutes / 60, coachClasses, teamClasses };
 }
 function renderStats(container, year, month) {
-  const owners = isAdmin() ? [...MANAGER_NAMES, '高芷妍'] : [currentUser.name];
+  const owners = isAdmin() ? SCHEDULABLE_USERS : [currentUser.name];
   container.innerHTML = owners.map(owner => {
     const stats = statsForOwner(owner, year, month);
     return `<section class="rs-stat-card"><h3>📊 ${escapeHtml(owner)} 本月統計</h3>
@@ -448,7 +454,7 @@ function renderDayView(main) {
 }
 function buildModal(mode, booking, space, slot, dateKey) {
   const editing = mode === 'edit';
-  const owner = editing ? booking.owner : currentUser.name;
+  const owner = editing ? booking.owner : (SCHEDULABLE_USERS.includes(currentUser.name) ? currentUser.name : SCHEDULABLE_USERS[0]);
   const kind = editing ? (booking.kind || (isAdminSpace(space) ? 'admin' : 'coach')) : (isAdminSpace(space) ? 'admin' : 'coach');
   const durations = isAdminSpace(space) ? ADMIN_DURATIONS : COACH_DURATIONS;
   const duration = editing ? Number(booking.duration) : (isAdminSpace(space) ? 90 : 75);
@@ -549,6 +555,7 @@ function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, rema
 }
 function targetSpaces(kind, space) { return kind === 'team' ? TEAM_SPACES : [Number(space)]; }
 function validateBooking(values, state, existingIds = []) {
+  if (!SCHEDULABLE_OWNERS.has(values.owner)) return '老闆帳號僅供管理，不能被安排課程。';
   if (values.owner === OTHER_OWNER && !values.nickname) return '請輸入「其他」的暱稱。';
   if (values.kind === 'team' && !isTeamSpace(state.space)) return '團課只能安排在二樓自由重量區。';
   if (isAdminSpace(state.space) && values.kind !== 'admin') return '行政時段只能使用行政類型。';
