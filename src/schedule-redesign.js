@@ -1,5 +1,6 @@
 import './schedule-redesign.css';
 import { ADMIN_CAPACITY, buildAdminSegments, buildAdminSlotStates, wouldExceedAdminCapacity } from './admin-schedule-layout.js';
+import { commitDateBookingMutation } from './schedule-booking-transaction.js';
 
 const ROOT_PATH = 'scheduleV2Bookings';
 const FALLBACK_KEY = 'relife_schedule_v2_bookings';
@@ -259,13 +260,19 @@ async function persistChanges(dateKey, removeIds, additions, replacements = []) 
       return false;
     }
   }
-  const changes = {};
-  removeIds.forEach(id => { changes[`${ROOT_PATH}/${dateKey}/${id}`] = null; });
-  replacements.forEach(item => { changes[`${ROOT_PATH}/${dateKey}/${item.id}`] = item; });
-  additions.forEach(item => { changes[`${ROOT_PATH}/${dateKey}/${item.id}`] = item; });
   try {
-    await firebaseApi.update(firebaseApi.ref(db), changes);
-    return true;
+    const result = await commitDateBookingMutation({
+      reference: firebaseApi.ref(db, `${ROOT_PATH}/${dateKey}`),
+      mutation: { removeIds, additions, replacements },
+      runTransaction: firebaseApi.runTransaction,
+    });
+    if (result.committed) return true;
+    if (result.reason === 'admin-capacity') {
+      showToast(`⚠️ 行政時段同一時間最多安排 ${ADMIN_CAPACITY} 位教練。`);
+      return false;
+    }
+    showToast('⚠️ 排課資料已變更，請確認最新內容後再試');
+    return false;
   } catch (error) {
     console.error('Firebase 寫入失敗：', error);
     showToast('⚠️ 儲存失敗，請檢查網路後再試');
