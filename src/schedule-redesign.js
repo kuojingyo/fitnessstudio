@@ -1,4 +1,5 @@
 import './schedule-redesign.css';
+import { ADMIN_CAPACITY, buildAdminSegments, buildAdminSlotStates, wouldExceedAdminCapacity } from './admin-schedule-layout.js';
 
 const ROOT_PATH = 'scheduleV2Bookings';
 const FALLBACK_KEY = 'relife_schedule_v2_bookings';
@@ -24,6 +25,7 @@ const ADMIN_DURATIONS = [30, 60, 90, 120, 150, 180, 210, 240];
 const COACH_DURATIONS = [75, 90];
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:09|1\d|2[01]):(?:00|15|30|45)$/;
+const FORCE_LOCAL_DEMO = import.meta.env.DEV && new URLSearchParams(window.location.search).get('demo') === '1';
 
 let db = null;
 let firebaseApi = null;
@@ -181,7 +183,9 @@ function setDataError(message, error) {
 
 async function initDataLayer() {
   const config = window.RELIFE_FIREBASE_CONFIG;
-  if (config && config.databaseURL) {
+  if (FORCE_LOCAL_DEMO) {
+    useFallback = true;
+  } else if (config && config.databaseURL) {
     try {
       const appModule = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
       const dbModule = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
@@ -203,6 +207,9 @@ async function initDataLayer() {
     setDataError('⚠️ 雲端排課系統設定不完整，暫時無法使用。');
     return;
   }
+  window.RELIFE_SCHEDULE_BACKEND = useFallback ? (FORCE_LOCAL_DEMO ? 'local-demo' : 'local-fallback') : 'firebase';
+  const scheduleRoot = $('#schedule-redesign');
+  if (scheduleRoot) scheduleRoot.dataset.backend = window.RELIFE_SCHEDULE_BACKEND;
   if (useFallback) {
     try { rawBookings = normalizeBookings(JSON.parse(localStorage.getItem(FALLBACK_KEY) || '{}')); }
     catch { rawBookings = {}; }
@@ -304,7 +311,7 @@ function renderLogin(root) {
 function renderShell(root) {
   root.innerHTML = `<div class="rs-app-shell">
     <header class="rs-header">
-      <div class="rs-header-brand">RELIFE Fitness · 排課系統</div>
+      <div class="rs-header-brand">RELIFE Fitness · 排課系統${FORCE_LOCAL_DEMO ? '<span class="rs-demo-badge">本機測試資料</span>' : ''}</div>
       <div class="rs-header-user"><span>${escapeHtml(currentUser.name)}</span><span class="rs-role-pill">${currentUser.role === 'admin' ? '管理員' : '一般使用者'}</span></div>
       <div class="rs-header-actions">
         <button type="button" class="rs-mobile-view-toggle rs-nav-btn active" id="rs-mobile-view-toggle">${currentView === 'month' ? '查看當日預約' : (isBossManager() ? '返回教練月檢視' : '返回月檢視')}</button>
@@ -422,15 +429,63 @@ function renderStats(container, year, month) {
 function findBookingAtSlot(bookings, space, slot) {
   return bookings.find(b => Number(b.space) === Number(space) && timeToSlot(b.time) <= slot && slot < timeToSlot(b.time) + durationToSlots(b.duration));
 }
+function renderAdminTimeline(dayBookings) {
+  const adminBookings = dayBookings
+    .filter(booking => isAdminSpace(booking.space))
+    .map(booking => {
+      const start = timeToSlot(booking.time);
+      return { ...booking, start, end: start + durationToSlots(booking.duration) };
+    });
+  const segments = buildAdminSegments(adminBookings);
+  const bands = [];
+  for (const segment of segments) {
+    let band = bands[bands.length - 1];
+    if (!band || band.start !== segment.start || band.end !== segment.end) {
+      band = { start: segment.start, end: segment.end, count: segment.count, items: [] };
+      bands.push(band);
+    }
+    band.items.push(segment);
+  }
+  const canAdd = canCreateAt(1);
+  const slotStates = buildAdminSlotStates(adminBookings, SLOTS_PER_DAY);
+  const addSlots = canAdd ? slotStates.filter(state => state.canAdd).map(state => {
+    const top = state.slot / SLOTS_PER_DAY * 100;
+    const height = 100 / SLOTS_PER_DAY;
+    const mode = state.count ? 'rail' : 'empty';
+    const label = `${slotToTime(state.slot)} 新增行政排班，目前 ${state.count} 位教練`;
+    return `<button type="button" class="rs-admin-add-slot ${mode}" style="top:${top}%;height:${height}%" data-create-space="1" data-create-slot="${state.slot}" aria-label="${label}" title="${label}"><span>＋</span></button>`;
+  }).join('') : '';
+  const bookingBands = bands.map(band => {
+    const top = band.start / SLOTS_PER_DAY * 100;
+    const height = (band.end - band.start) / SLOTS_PER_DAY * 100;
+    const reserveRail = canAdd && band.count === ADMIN_CAPACITY - 1;
+    const segmentSlots = band.end - band.start;
+    const densityClass = segmentSlots === 1 ? 'is-tiny' : (segmentSlots === 2 ? 'is-short' : '');
+    const cards = band.items.map(segment => {
+      const bookingEnd = endTime(segment.time, segment.duration);
+      const continuation = `${segment.continuesBefore ? ' continues-before' : ''}${segment.continuesAfter ? ' continues-after' : ''}`;
+      const ownerClass = segment.owner === '高芷妍' ? ' high' : '';
+      const remark = segment.remark ? `<span class="rs-admin-remark">📝 ${escapeHtml(segment.remark)}</span>` : '';
+      const label = `編輯 ${ownerLabel(segment)} 行政時段 ${segment.time} 至 ${bookingEnd}`;
+      return `<button type="button" class="rs-admin-card${ownerClass}${continuation}" data-booking-id="${escapeHtml(segment.id)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"><span class="rs-admin-name">${escapeHtml(ownerLabel(segment))}</span><span class="rs-admin-time"><span>${escapeHtml(segment.time)}</span><span class="rs-admin-time-sep">–</span><span>${escapeHtml(bookingEnd)}</span></span>${remark}</button>`;
+    }).join('');
+    return `<div class="rs-admin-band count-${band.count} ${densityClass}${reserveRail ? ' can-add' : ''}" style="top:${top}%;height:${height}%;grid-template-columns:repeat(${band.count},minmax(0,1fr))">${cards}</div>`;
+  }).join('');
+  return `<div class="rs-admin-timeline" style="height:${SLOTS_PER_DAY * 30}px">${addSlots}${bookingBands}</div>`;
+}
 function renderDayView(main) {
   const dateKey = fmtDate(currentDate);
   const dayBookings = allBookingsForDate(dateKey);
   let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表`);
-  html += `<div class="rs-permission-note">${isAdmin() ? '管理員：可編輯所有排課。' : '一般使用者：可編輯教練課與「其他」課程；行政時段僅管理員可編輯。'}</div>`;
+  html += `<div class="rs-permission-note">${isAdmin() ? `管理員：可編輯所有排課；行政時段同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '一般使用者：可編輯教練課與「其他」課程；行政時段僅管理員可編輯。'}</div>`;
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
   for (let slot = 0; slot < SLOTS_PER_DAY; slot++) {
     html += `<tr class="${slot % 4 === 0 ? 'hour' : ''}"><td class="time">${slotToTime(slot)}</td>`;
     for (let space = 1; space <= SPACES; space++) {
+      if (isAdminSpace(space)) {
+        if (slot === 0) html += `<td class="rs-admin-column" rowspan="${SLOTS_PER_DAY}">${renderAdminTimeline(dayBookings)}</td>`;
+        continue;
+      }
       const booking = findBookingAtSlot(dayBookings, space, slot);
       if (booking && timeToSlot(booking.time) !== slot) continue;
       if (!booking) {
@@ -565,7 +620,17 @@ function validateBooking(values, state, existingIds = []) {
   if (!validateRange(state.slot, values.duration)) return '預約時段超過 22:00，請縮短課程或更換時間。';
   const list = allBookingsForDate(state.dateKey);
   const spaces = targetSpaces(values.kind, state.space);
+  if (isAdminSpace(state.space)) {
+    const adminBookings = list.filter(booking => isAdminSpace(booking.space)).map(booking => {
+      const start = timeToSlot(booking.time);
+      return { id: booking.id, start, end: start + durationToSlots(booking.duration) };
+    });
+    if (wouldExceedAdminCapacity(adminBookings, state.slot, state.slot + durationToSlots(values.duration), existingIds)) {
+      return `行政時段同一時間最多安排 ${ADMIN_CAPACITY} 位教練。`;
+    }
+  }
   for (const target of spaces) {
+    if (isAdminSpace(target)) continue;
     const conflict = conflictingBooking(list, target, slotToTime(state.slot), values.duration, existingIds, values.owner, values.kind);
     if (conflict) return `${spaceName(target)} 在此時段已有 ${ownerLabel(conflict)} 的排課。`;
   }
