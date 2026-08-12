@@ -66,6 +66,11 @@ function spaceName(space) { return SPACE_NAMES[Number(space) - 1] || `空間 ${s
 function isAdminSpace(space) { return Number(space) === 1; }
 function isTeamSpace(space) { return TEAM_SPACES.includes(Number(space)); }
 function ownerLabel(booking) { return booking.owner === OTHER_OWNER ? (booking.nickname || OTHER_OWNER) : (booking.owner || '未指定'); }
+function ownerColorClass(owner) {
+  if (owner === '高芷妍') return 'high';
+  if (owner === '潘閱滔') return 'pan';
+  return '';
+}
 function courseLabel(booking) { return booking.kind === 'team' ? '團課' : (booking.space === 1 ? '行政' : '教練課'); }
 function isToday(date) { const now = new Date(); return fmtDate(now) === fmtDate(date); }
 function isAdmin() { return currentUser?.role === 'admin'; }
@@ -402,7 +407,7 @@ function monthDayHtml(date, other) {
   if (isToday(date)) classes.push('today');
   if (selectedDateKey === key) classes.push('selected');
   const items = other ? [] : monthBookingsForUser(key);
-  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${b.owner === '高芷妍' ? 'high' : ''}"><strong>${isBossManager() ? `${escapeHtml(ownerLabel(b))}｜` : ''}${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
+  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}"><strong>${isBossManager() ? `${escapeHtml(ownerLabel(b))}｜` : ''}${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
   return `<div class="${classes.join(' ')}" data-date="${key}"><div class="rs-day-number">${date.getDate()}</div>${content}</div>`;
 }
 function statsForOwner(owner, year, month) {
@@ -471,10 +476,10 @@ function renderAdminTimeline(dayBookings) {
     const cards = band.items.map(segment => {
       const bookingEnd = endTime(segment.time, segment.duration);
       const continuation = `${segment.continuesBefore ? ' continues-before' : ''}${segment.continuesAfter ? ' continues-after' : ''}`;
-      const ownerClass = segment.owner === '高芷妍' ? ' high' : '';
+      const ownerClass = ownerColorClass(segment.owner);
       const remark = segment.remark ? `<span class="rs-admin-remark">📝 ${escapeHtml(segment.remark)}</span>` : '';
       const label = `編輯 ${ownerLabel(segment)} 行政時段 ${segment.time} 至 ${bookingEnd}`;
-      return `<button type="button" class="rs-admin-card${ownerClass}${continuation}" data-booking-id="${escapeHtml(segment.id)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"><span class="rs-admin-name">${escapeHtml(ownerLabel(segment))}</span><span class="rs-admin-time"><span>${escapeHtml(segment.time)}</span><span class="rs-admin-time-sep">–</span><span>${escapeHtml(bookingEnd)}</span></span>${remark}</button>`;
+      return `<button type="button" class="rs-admin-card${ownerClass ? ` ${ownerClass}` : ''}${continuation}" data-booking-id="${escapeHtml(segment.id)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"><span class="rs-admin-name">${escapeHtml(ownerLabel(segment))}</span><span class="rs-admin-time"><span>${escapeHtml(segment.time)}</span><span class="rs-admin-time-sep">–</span><span>${escapeHtml(bookingEnd)}</span></span>${remark}</button>`;
     }).join('');
     return `<div class="rs-admin-band count-${band.count} ${densityClass}${reserveRail ? ' can-add' : ''}" style="top:${top}%;height:${height}%;grid-template-columns:repeat(${band.count},minmax(0,1fr))">${cards}</div>`;
   }).join('');
@@ -502,7 +507,7 @@ function renderDayView(main) {
       }
       const display = `${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}`;
       const remark = booking.remark ? `<div class="rs-remark">📝 ${escapeHtml(booking.remark)}</div>` : '';
-      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${booking.owner === '高芷妍' ? 'high' : ''}" rowspan="${durationToSlots(booking.duration)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))}</small>${remark}</td>`;
+      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}" rowspan="${durationToSlots(booking.duration)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))}</small>${remark}</td>`;
     }
     html += '</tr>';
   }
