@@ -1,6 +1,16 @@
 import './schedule-redesign.css';
 import { ADMIN_CAPACITY, buildAdminSegments, buildAdminSlotStates, wouldExceedAdminCapacity } from './admin-schedule-layout.js';
-import { commitDateBookingMutation } from './schedule-booking-transaction.js';
+import {
+  ADMIN_DURATIONS,
+  keyboardAdminResizeCommand,
+  pointerYToAdminSlot,
+  resizeAdminRange,
+} from './admin-schedule-resize.js';
+import {
+  applyDateBookingMutation,
+  buildDateBookingMutation,
+  commitDateBookingMutation,
+} from './schedule-booking-transaction.js';
 
 const ROOT_PATH = 'scheduleV2Bookings';
 const FALLBACK_KEY = 'relife_schedule_v2_bookings';
@@ -22,7 +32,6 @@ const OPEN_HOUR = 9;
 const CLOSE_HOUR = 22;
 const SLOT_MINUTES = 15;
 const SLOTS_PER_DAY = (CLOSE_HOUR - OPEN_HOUR) * 60 / SLOT_MINUTES;
-const ADMIN_DURATIONS = [30, 60, 90, 120, 150, 180, 210, 240];
 const COACH_DURATIONS = [75, 90];
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:09|1\d|2[01]):(?:00|15|30|45)$/;
@@ -42,6 +51,7 @@ let modalState = null;
 let lastModalTrigger = null;
 let toastTimer = null;
 let mutationInProgress = false;
+let adminResizeState = null;
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -150,11 +160,9 @@ function overlaps(startA, durationA, startB, durationB) {
   return a1 < b2 && a2 > b1;
 }
 function conflictingBooking(list, space, time, duration, excludeIds = [], owner, kind) {
-  if (owner === OTHER_OWNER) return null;
   return list.find(b => {
     if (!b || excludeIds.includes(b.id)) return false;
     if (Number(b.space) !== Number(space)) return false;
-    if (b.owner === OTHER_OWNER) return false;
     if (kind === 'team' && b.kind === 'team' && b.groupId && excludeIds.some(id => id === b.id)) return false;
     return overlaps(time, duration, b.time, b.duration);
   }) || null;
@@ -244,17 +252,21 @@ async function initDataLayer() {
     });
   }
 }
-async function persistChanges(dateKey, removeIds, additions, replacements = []) {
+async function persistChanges(dateKey, mutation) {
   if (!isDataReady()) {
     showToast('⚠️ 排課資料尚未同步完成，請稍後再試');
     return false;
   }
   if (useFallback) {
-    const list = bookingsForDate(dateKey).filter(b => !removeIds.includes(b.id));
-    const replacementIds = new Set(replacements.map(item => item.id));
-    const kept = list.filter(b => !replacementIds.has(b.id));
-    const nextBookings = { ...rawBookings, [dateKey]: [...kept, ...replacements, ...additions] };
-    if (!nextBookings[dateKey].length) delete nextBookings[dateKey];
+    const currentNode = Object.fromEntries(bookingsForDate(dateKey).map(booking => [booking.id, booking]));
+    const result = applyDateBookingMutation(currentNode, mutation);
+    if (!result.ok) {
+      showToast(mutationErrorMessage(result.reason));
+      return false;
+    }
+    const nextBookings = { ...rawBookings };
+    if (result.value) nextBookings[dateKey] = Object.values(result.value);
+    else delete nextBookings[dateKey];
     try {
       localStorage.setItem(FALLBACK_KEY, JSON.stringify(nextBookings));
       rawBookings = nextBookings;
@@ -268,18 +280,68 @@ async function persistChanges(dateKey, removeIds, additions, replacements = []) 
   try {
     const result = await commitDateBookingMutation({
       reference: firebaseApi.ref(db, `${ROOT_PATH}/${dateKey}`),
-      mutation: { removeIds, additions, replacements },
+      mutation,
       runTransaction: firebaseApi.runTransaction,
     });
     if (result.committed) return true;
-    if (result.reason === 'admin-capacity') {
-      showToast(`⚠️ 行政時段同一時間最多安排 ${ADMIN_CAPACITY} 位教練。`);
-      return false;
-    }
-    showToast('⚠️ 排課資料已變更，請確認最新內容後再試');
+    showToast(mutationErrorMessage(result.reason));
     return false;
   } catch (error) {
     console.error('Firebase 寫入失敗：', error);
+    showToast('⚠️ 儲存失敗，請檢查網路後再試');
+    return false;
+  }
+}
+function mutationErrorMessage(reason) {
+  if (reason === 'admin-capacity') return `⚠️ 行政時段同一時間最多安排 ${ADMIN_CAPACITY} 位教練。`;
+  if (reason === 'owner-conflict') return '⚠️ 調整後會與同一位教練的其他排課重疊。';
+  if (reason === 'space-conflict') return '⚠️ 該場地在這個時段已有其他排課，請重新選擇。';
+  if (reason === 'booking-missing') return '⚠️ 這筆排課已被刪除，畫面將重新同步。';
+  if (reason === 'booking-changed') return '⚠️ 這筆排課已被其他裝置修改，請依最新內容再操作。';
+  if (reason === 'booking-exists') return '⚠️ 新排課識別碼發生衝突，請再送出一次。';
+  if (reason === 'group-changed') return '⚠️ 團課成員已被其他裝置變更，請確認最新內容後再試。';
+  if (reason === 'invalid-group') return '⚠️ 團課資料不完整，已停止寫入以避免留下殘缺排課。';
+  if (reason === 'invalid-booking-data') return '⚠️ 排課資料格式異常，已停止寫入並保留原資料。';
+  if (reason === 'invalid-mutation') return '⚠️ 排課操作資料不完整，請重新整理後再試。';
+  if (reason === 'admin-range') return '⚠️ 行政時間超出可排範圍，請重新調整。';
+  return '⚠️ 排課資料已變更，請確認最新內容後再試。';
+}
+async function persistAdminResize(dateKey, patch) {
+  if (!isDataReady()) {
+    showToast('⚠️ 排課資料尚未同步完成，請稍後再試');
+    return false;
+  }
+  if (useFallback) {
+    const currentNode = Object.fromEntries(bookingsForDate(dateKey).map(booking => [booking.id, booking]));
+    const result = applyDateBookingMutation(currentNode, { patches: [patch] });
+    if (!result.ok) {
+      showToast(mutationErrorMessage(result.reason));
+      return false;
+    }
+    const nextBookings = { ...rawBookings };
+    if (result.value) nextBookings[dateKey] = Object.values(result.value);
+    else delete nextBookings[dateKey];
+    try {
+      localStorage.setItem(FALLBACK_KEY, JSON.stringify(nextBookings));
+      rawBookings = nextBookings;
+      return true;
+    } catch (error) {
+      console.error('本機行政時間儲存失敗：', error);
+      showToast('⚠️ 儲存失敗，請確認瀏覽器允許本機儲存');
+      return false;
+    }
+  }
+  try {
+    const result = await commitDateBookingMutation({
+      reference: firebaseApi.ref(db, `${ROOT_PATH}/${dateKey}`),
+      mutation: { patches: [patch] },
+      runTransaction: firebaseApi.runTransaction,
+    });
+    if (result.committed) return true;
+    showToast(mutationErrorMessage(result.reason));
+    return false;
+  } catch (error) {
+    console.error('Firebase 行政時間寫入失敗：', error);
     showToast('⚠️ 儲存失敗，請檢查網路後再試');
     return false;
   }
@@ -354,6 +416,7 @@ function logout() {
 }
 function renderCurrentView() {
   if (!isLoggedIn()) return;
+  if (adminResizeState) clearAdminResizeState();
   const main = $('#rs-main');
   if (!main) { renderRoot(); return; }
   if (dataStatus === 'error') {
@@ -479,17 +542,244 @@ function renderAdminTimeline(dayBookings) {
       const ownerClass = ownerColorClass(segment.owner);
       const remark = segment.remark ? `<span class="rs-admin-remark">📝 ${escapeHtml(segment.remark)}</span>` : '';
       const label = `編輯 ${ownerLabel(segment)} 行政時段 ${segment.time} 至 ${bookingEnd}`;
-      return `<button type="button" class="rs-admin-card${ownerClass ? ` ${ownerClass}` : ''}${continuation}" data-booking-id="${escapeHtml(segment.id)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"><span class="rs-admin-name">${escapeHtml(ownerLabel(segment))}</span><span class="rs-admin-time"><span>${escapeHtml(segment.time)}</span><span class="rs-admin-time-sep">–</span><span>${escapeHtml(bookingEnd)}</span></span>${remark}</button>`;
+      const canResize = canEditBooking(segment);
+      const startResize = canResize && !segment.continuesBefore
+        ? `<button type="button" class="rs-admin-resize-handle start" data-resize-booking-id="${escapeHtml(segment.id)}" data-resize-edge="start" role="slider" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="${SLOTS_PER_DAY}" aria-valuenow="${timeToSlot(segment.time)}" aria-valuetext="${escapeHtml(segment.time)}" aria-label="調整 ${escapeHtml(ownerLabel(segment))} 行政開始時間，目前 ${escapeHtml(segment.time)}。拖曳，或使用上下方向鍵預覽、Enter 確認、Escape 取消" title="拖曳調整開始時間"><span aria-hidden="true"></span></button>`
+        : '';
+      const endResize = canResize && !segment.continuesAfter
+        ? `<button type="button" class="rs-admin-resize-handle end" data-resize-booking-id="${escapeHtml(segment.id)}" data-resize-edge="end" role="slider" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="${SLOTS_PER_DAY}" aria-valuenow="${timeToSlot(segment.time) + durationToSlots(segment.duration)}" aria-valuetext="${escapeHtml(bookingEnd)}" aria-label="調整 ${escapeHtml(ownerLabel(segment))} 行政結束時間，目前 ${escapeHtml(bookingEnd)}。拖曳，或使用上下方向鍵預覽、Enter 確認、Escape 取消" title="拖曳調整結束時間"><span aria-hidden="true"></span></button>`
+        : '';
+      return `<div class="rs-admin-card-wrap"><button type="button" class="rs-admin-card${ownerClass ? ` ${ownerClass}` : ''}${continuation}" data-booking-id="${escapeHtml(segment.id)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"><span class="rs-admin-name">${escapeHtml(ownerLabel(segment))}</span><span class="rs-admin-time"><span>${escapeHtml(segment.time)}</span><span class="rs-admin-time-sep">–</span><span>${escapeHtml(bookingEnd)}</span></span>${remark}</button>${startResize}${endResize}</div>`;
     }).join('');
     return `<div class="rs-admin-band count-${band.count} ${densityClass}${reserveRail ? ' can-add' : ''}" style="top:${top}%;height:${height}%;grid-template-columns:repeat(${band.count},minmax(0,1fr))">${cards}</div>`;
   }).join('');
-  return `<div class="rs-admin-timeline" style="height:${SLOTS_PER_DAY * 30}px">${addSlots}${bookingBands}</div>`;
+  return `<div class="rs-admin-timeline" style="height:${SLOTS_PER_DAY * 30}px">${addSlots}${bookingBands}<div class="rs-admin-resize-preview" hidden aria-live="polite"></div></div>`;
+}
+function adminRangeForBooking(booking) {
+  const start = timeToSlot(booking.time);
+  return { start, end: start + durationToSlots(booking.duration) };
+}
+function setAdminResizePreview(state) {
+  const { preview, timeline, booking, range } = state;
+  const startTime = slotToTime(range.start);
+  const endTimeValue = slotToTime(range.end);
+  preview.hidden = false;
+  preview.style.top = `${range.start / SLOTS_PER_DAY * 100}%`;
+  preview.style.height = `${(range.end - range.start) / SLOTS_PER_DAY * 100}%`;
+  preview.textContent = `${ownerLabel(booking)}\n${startTime}–${endTimeValue}`;
+  preview.setAttribute('aria-label', `${ownerLabel(booking)} 行政時間預覽 ${startTime} 至 ${endTimeValue}`);
+  const handleSlot = state.edge === 'start' ? range.start : range.end;
+  state.handle.setAttribute('aria-valuenow', String(handleSlot));
+  state.handle.setAttribute('aria-valuetext', slotToTime(handleSlot));
+  timeline.classList.add('is-resizing');
+  $$('[data-booking-id]', timeline)
+    .filter(card => card.dataset.bookingId === booking.id)
+    .forEach(card => card.closest('.rs-admin-card-wrap')?.classList.add('is-resizing-source'));
+}
+function clearAdminResizeState() {
+  const state = adminResizeState;
+  if (!state) return;
+  window.removeEventListener('pointermove', moveAdminResizePointer);
+  window.removeEventListener('pointerup', endAdminResizePointer);
+  window.removeEventListener('pointercancel', cancelAdminResizePointer);
+  state.handle.removeAttribute('aria-grabbed');
+  const originalSlot = state.edge === 'start' ? state.originalRange.start : state.originalRange.end;
+  state.handle.setAttribute('aria-valuenow', String(originalSlot));
+  state.handle.setAttribute('aria-valuetext', slotToTime(originalSlot));
+  state.timeline.classList.remove('is-resizing');
+  state.preview.hidden = true;
+  $$('.rs-admin-card-wrap.is-resizing-source', state.timeline)
+    .forEach(card => card.classList.remove('is-resizing-source'));
+  adminResizeState = null;
+}
+function cancelAdminResizePointer(event) {
+  if (event?.pointerId != null && event.pointerId !== adminResizeState?.pointerId) return;
+  clearAdminResizeState();
+}
+function autoScrollAdminTable(clientY, tableWrap) {
+  if (!tableWrap) return;
+  const rect = tableWrap.getBoundingClientRect();
+  const edgeSize = 54;
+  if (clientY < rect.top + edgeSize) tableWrap.scrollTop -= 30;
+  else if (clientY > rect.bottom - edgeSize) tableWrap.scrollTop += 30;
+}
+function moveAdminResizePointer(event) {
+  const state = adminResizeState;
+  if (!state || event.pointerId !== state.pointerId) return;
+  event.preventDefault();
+  autoScrollAdminTable(event.clientY, state.tableWrap);
+  const rect = state.timeline.getBoundingClientRect();
+  const targetSlot = pointerYToAdminSlot({
+    clientY: event.clientY,
+    top: rect.top,
+    height: rect.height,
+    totalSlots: SLOTS_PER_DAY,
+  });
+  state.range = resizeAdminRange({
+    ...state.originalRange,
+    edge: state.edge,
+    targetSlot,
+    totalSlots: SLOTS_PER_DAY,
+  });
+  setAdminResizePreview(state);
+}
+async function commitAdminResize(booking, dateKey, range, focusEdge = null) {
+  const originalRange = adminRangeForBooking(booking);
+  if (range.start === originalRange.start && range.end === originalRange.end) return;
+  if (mutationInProgress) {
+    showToast('⏳ 上一筆排課仍在儲存，請稍候');
+    return;
+  }
+  const nextTime = slotToTime(range.start);
+  const nextDuration = (range.end - range.start) * SLOT_MINUTES;
+  mutationInProgress = true;
+  try {
+    const ok = await persistAdminResize(dateKey, {
+      id: booking.id,
+      expected: {
+        time: booking.time,
+        duration: Number(booking.duration),
+        space: Number(booking.space),
+        owner: booking.owner,
+        kind: booking.kind,
+      },
+      changes: { time: nextTime, duration: nextDuration },
+    });
+    if (ok) showToast(`✅ 行政時間已調整為 ${nextTime}–${slotToTime(range.end)}`);
+  } finally {
+    mutationInProgress = false;
+    renderCurrentView();
+    if (focusEdge) {
+      requestAnimationFrame(() => {
+        $$('[data-resize-booking-id]')
+          .find(handle => handle.dataset.resizeBookingId === booking.id && handle.dataset.resizeEdge === focusEdge)
+          ?.focus({ preventScroll: true });
+      });
+    }
+  }
+}
+async function endAdminResizePointer(event) {
+  const state = adminResizeState;
+  if (!state || event.pointerId !== state.pointerId) return;
+  event.preventDefault();
+  const { booking, dateKey, edge, range } = state;
+  clearAdminResizeState();
+  await commitAdminResize(booking, dateKey, range, edge);
+}
+function beginAdminResizePointer(event, booking, dateKey) {
+  if (adminResizeState?.input === 'keyboard') clearAdminResizeState();
+  if (mutationInProgress || adminResizeState || !canEditBooking(booking)) return;
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const handle = event.currentTarget;
+  const timeline = handle.closest('.rs-admin-timeline');
+  const preview = $('.rs-admin-resize-preview', timeline);
+  if (!timeline || !preview) return;
+  const originalRange = adminRangeForBooking(booking);
+  adminResizeState = {
+    booking,
+    dateKey,
+    input: 'pointer',
+    edge: handle.dataset.resizeEdge,
+    handle,
+    pointerId: event.pointerId,
+    timeline,
+    preview,
+    tableWrap: timeline.closest('.rs-table-wrap'),
+    originalRange,
+    range: originalRange,
+  };
+  handle.setAttribute('aria-grabbed', 'true');
+  try { handle.setPointerCapture(event.pointerId); } catch { /* pointer capture 非必要 */ }
+  setAdminResizePreview(adminResizeState);
+  window.addEventListener('pointermove', moveAdminResizePointer, { passive: false });
+  window.addEventListener('pointerup', endAdminResizePointer, { passive: false });
+  window.addEventListener('pointercancel', cancelAdminResizePointer);
+}
+async function handleAdminResizeKeydown(event, booking, dateKey) {
+  if (mutationInProgress || !canEditBooking(booking)) return;
+  const handle = event.currentTarget;
+  const edge = event.currentTarget.dataset.resizeEdge;
+  const originalRange = adminRangeForBooking(booking);
+  const currentState = adminResizeState?.input === 'keyboard' && adminResizeState.handle === handle
+    ? adminResizeState
+    : null;
+  if (adminResizeState && !currentState) return;
+  if (!currentState && !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+  const range = currentState?.range || originalRange;
+  const command = keyboardAdminResizeCommand({
+    edge,
+    key: event.key,
+    range,
+    originalRange,
+    totalSlots: SLOTS_PER_DAY,
+  });
+  if (!command) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (command.action === 'cancel') {
+    clearAdminResizeState();
+    showToast('已取消行政時間調整');
+    return;
+  }
+  if (command.action === 'commit') {
+    const nextRange = command.range;
+    clearAdminResizeState();
+    await commitAdminResize(booking, dateKey, nextRange, edge);
+    return;
+  }
+  if (command.range.start === range.start && command.range.end === range.end) {
+    showToast('已達行政時間可調整的邊界');
+    return;
+  }
+  if (!currentState) {
+    const timeline = handle.closest('.rs-admin-timeline');
+    const preview = timeline ? $('.rs-admin-resize-preview', timeline) : null;
+    if (!timeline || !preview) return;
+    adminResizeState = {
+      booking,
+      dateKey,
+      input: 'keyboard',
+      edge,
+      handle,
+      pointerId: null,
+      timeline,
+      preview,
+      tableWrap: timeline.closest('.rs-table-wrap'),
+      originalRange,
+      range: command.range,
+    };
+    handle.setAttribute('aria-grabbed', 'true');
+  } else {
+    currentState.range = command.range;
+  }
+  setAdminResizePreview(adminResizeState);
+}
+function attachAdminResize(main, dayBookings, dateKey) {
+  $$('[data-resize-booking-id]', main).forEach(handle => {
+    const booking = dayBookings.find(item => item.id === handle.dataset.resizeBookingId);
+    if (!booking) return;
+    handle.addEventListener('pointerdown', event => beginAdminResizePointer(event, booking, dateKey));
+    handle.addEventListener('lostpointercapture', cancelAdminResizePointer);
+    handle.addEventListener('blur', () => {
+      if (adminResizeState?.input === 'keyboard' && adminResizeState.handle === handle) {
+        clearAdminResizeState();
+      }
+    });
+    handle.addEventListener('keydown', event => {
+      handleAdminResizeKeydown(event, booking, dateKey).catch(error => {
+        console.error('鍵盤調整行政時間失敗：', error);
+        showToast('⚠️ 行政時間調整失敗，請稍後再試');
+      });
+    });
+  });
 }
 function renderDayView(main) {
   const dateKey = fmtDate(currentDate);
   const dayBookings = allBookingsForDate(dateKey);
   let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表`);
-  html += `<div class="rs-permission-note">${isAdmin() ? `管理員：可編輯所有排課；行政時段同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '一般使用者：可編輯教練課與「其他」課程；行政時段僅管理員可編輯。'}</div>`;
+  html += `<div class="rs-permission-note">${isAdmin() ? `管理員：拖曳行政卡片上下邊框可調整時間（每格 15 分鐘）；同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '一般使用者：可編輯教練課與「其他」課程；行政時段僅管理員可編輯。'}</div>`;
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
   for (let slot = 0; slot < SLOTS_PER_DAY; slot++) {
     html += `<tr class="${slot % 4 === 0 ? 'hour' : ''}"><td class="time">${slotToTime(slot)}</td>`;
@@ -519,6 +809,7 @@ function renderDayView(main) {
     const booking = dayBookings.find(item => item.id === cell.dataset.bookingId);
     if (booking) openEditModal(booking, dateKey, cell);
   }));
+  attachAdminResize(main, dayBookings, dateKey);
 }
 function buildModal(mode, booking, space, slot, dateKey) {
   const editing = mode === 'edit';
@@ -554,7 +845,17 @@ function openCreateModal(space, slot, dateKey, triggerElement = null) {
 function openEditModal(booking, dateKey, triggerElement = null) {
   if (!canEditBooking(booking)) { showToast('🔒 目前帳號沒有編輯這筆排課的權限'); return; }
   lastModalTrigger = triggerElement || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-  modalState = { mode: 'edit', booking, space: Number(booking.space), slot: timeToSlot(booking.time), dateKey };
+  const originalRecords = booking.groupId
+    ? allBookingsForDate(dateKey).filter(item => item.groupId === booking.groupId)
+    : [booking];
+  modalState = {
+    mode: 'edit',
+    booking,
+    originalRecords: originalRecords.map(item => ({ ...item })),
+    space: Number(booking.space),
+    slot: timeToSlot(booking.time),
+    dateKey,
+  };
   mountModal();
 }
 function mountModal() {
@@ -655,7 +956,7 @@ async function submitBooking() {
   if (!state || mutationInProgress) return;
   const values = readModalValues();
   const oldGroup = state.mode === 'edit' ? state.booking.groupId : null;
-  const oldRecords = state.mode === 'edit' && oldGroup ? allBookingsForDate(state.dateKey).filter(b => b.groupId === oldGroup) : (state.mode === 'edit' ? [state.booking] : []);
+  const oldRecords = state.mode === 'edit' ? (state.originalRecords || [state.booking]) : [];
   const oldIds = oldRecords.map(b => b.id);
   const error = validateBooking(values, state, oldIds);
   if (error) { showToast(`⚠️ ${error}`); return; }
@@ -666,9 +967,15 @@ async function submitBooking() {
     dateKey: state.dateKey, space, owner: values.owner, nickname: values.owner === OTHER_OWNER ? values.nickname : '', kind: values.kind,
     duration: values.duration, remark: values.remark, time: slotToTime(state.slot), groupId
   }));
+  const mutation = buildDateBookingMutation({
+    mode: state.mode,
+    originalRecords: oldRecords,
+    records,
+    requiredTeamSpaces: TEAM_SPACES,
+  });
   mutationInProgress = true;
   try {
-    const ok = await persistChanges(state.dateKey, oldIds, [], records);
+    const ok = await persistChanges(state.dateKey, mutation);
     if (!ok) return;
     closeModal();
     showToast(state.mode === 'edit' ? '✅ 排課已修改' : '✅ 排課已建立');
@@ -698,10 +1005,15 @@ async function deleteCurrentBooking() {
     return;
   }
   const groupId = state.booking.groupId;
-  const removeIds = groupId ? allBookingsForDate(state.dateKey).filter(b => b.groupId === groupId).map(b => b.id) : [state.booking.id];
+  const originalRecords = state.originalRecords || [state.booking];
+  const mutation = buildDateBookingMutation({
+    mode: 'delete',
+    originalRecords,
+    requiredTeamSpaces: TEAM_SPACES,
+  });
   mutationInProgress = true;
   try {
-    const ok = await persistChanges(state.dateKey, removeIds, []);
+    const ok = await persistChanges(state.dateKey, mutation);
     if (!ok) return;
     closeModal();
     showToast(groupId ? '🗑️ 團課已取消' : '🗑️ 排課已取消');
@@ -717,6 +1029,12 @@ function boot() {
   if (currentUser) renderCurrentView();
   initDataLayer();
   document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && adminResizeState) {
+      event.preventDefault();
+      clearAdminResizeState();
+      showToast('已取消行政時間調整');
+      return;
+    }
     if (event.key === 'Escape' && modalState && !mutationInProgress) closeModal();
   });
 }
