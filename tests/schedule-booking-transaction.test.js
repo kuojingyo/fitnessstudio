@@ -952,3 +952,9 @@ test('行政貼上不得複製缺少教練名稱的異常來源資料', () => {
 
   assert.equal(result, null);
 });
+
+test('教練衝突訊息使用新增、貼上與調整都適用的通用文字', () => {
+  const message = bookingTransactionModule.bookingMutationErrorMessage?.('owner-conflict');
+
+  assert.equal(message, '⚠️ 此操作會與同一位教練的其他排課重疊。');
+});

@@ -12,6 +12,21 @@ const DANGEROUS_CHILD_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const PATCH_EXPECTED_FIELDS = ['time', 'duration', 'space', 'owner', 'kind'];
 const TEAM_SPACES = [7, 8, 9];
 
+export function bookingMutationErrorMessage(reason) {
+  if (reason === 'admin-capacity') return `⚠️ 行政時段同一時間最多安排 ${ADMIN_CAPACITY} 位教練。`;
+  if (reason === 'owner-conflict') return '⚠️ 此操作會與同一位教練的其他排課重疊。';
+  if (reason === 'space-conflict') return '⚠️ 該場地在這個時段已有其他排課，請重新選擇。';
+  if (reason === 'booking-missing') return '⚠️ 這筆排課已被刪除，畫面將重新同步。';
+  if (reason === 'booking-changed') return '⚠️ 這筆排課已被其他裝置修改，請依最新內容再操作。';
+  if (reason === 'booking-exists') return '⚠️ 新排課識別碼發生衝突，請再送出一次。';
+  if (reason === 'group-changed') return '⚠️ 團課成員已被其他裝置變更，請確認最新內容後再試。';
+  if (reason === 'invalid-group') return '⚠️ 團課資料不完整，已停止寫入以避免留下殘缺排課。';
+  if (reason === 'invalid-booking-data') return '⚠️ 排課資料格式異常，已停止寫入並保留原資料。';
+  if (reason === 'invalid-mutation') return '⚠️ 排課操作資料不完整，請重新整理後再試。';
+  if (reason === 'admin-range') return '⚠️ 行政時間超出可排範圍，請重新調整。';
+  return '⚠️ 排課資料已變更，請確認最新內容後再試。';
+}
+
 function isSafeBookingId(value) {
   const id = String(value ?? '').trim();
   return !!id && !DANGEROUS_CHILD_KEYS.has(id);
