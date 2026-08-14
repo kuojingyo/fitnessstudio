@@ -919,3 +919,36 @@ test('一般教練課不可透過行政右鍵功能貼上', () => {
 
   assert.equal(result, null);
 });
+
+test('行政貼上缺少新 id 時不得建立字面值 null 的排課', () => {
+  const result = bookingTransactionModule.buildAdminBookingPaste({
+    source: adminBooking('source-admin'),
+    targetDate: '2026-08-15',
+    id: null,
+    createdAt: 200,
+  });
+
+  assert.equal(result, null);
+});
+
+test('行政貼上缺少目標日期時不得建立字面值 null 的日期', () => {
+  const result = bookingTransactionModule.buildAdminBookingPaste({
+    source: adminBooking('source-admin'),
+    targetDate: null,
+    id: 'new-admin',
+    createdAt: 200,
+  });
+
+  assert.equal(result, null);
+});
+
+test('行政貼上不得複製缺少教練名稱的異常來源資料', () => {
+  const result = bookingTransactionModule.buildAdminBookingPaste({
+    source: adminBooking(undefined),
+    targetDate: '2026-08-15',
+    id: 'new-admin',
+    createdAt: 200,
+  });
+
+  assert.equal(result, null);
+});

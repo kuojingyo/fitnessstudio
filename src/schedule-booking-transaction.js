@@ -221,15 +221,21 @@ export function buildDateBookingMutation({
 }
 
 export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Date.now() }) {
+  const destinationDate = String(targetDate ?? '').trim();
+  const sourceOwner = normalizedOwner(source?.owner);
   if (!source
+    || !isSafeBookingId(id)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(destinationDate)
+    || typeof sourceOwner !== 'string'
+    || !sourceOwner.trim()
     || Number(source.space) !== ADMIN_SPACE
     || normalizedKind(source) !== 'admin'
-    || String(source.date ?? '') === String(targetDate ?? '')) return null;
+    || String(source.date ?? '').trim() === destinationDate) return null;
   const booking = {
     id: String(id),
-    date: String(targetDate),
+    date: destinationDate,
     space: ADMIN_SPACE,
-    owner: source.owner,
+    owner: sourceOwner.trim(),
     kind: 'admin',
     time: String(source.time).trim(),
     duration: Number(source.duration),
