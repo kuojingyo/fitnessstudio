@@ -505,6 +505,7 @@ function renderMonthView(main) {
   const first = new Date(year, month, 1), last = new Date(year, month + 1, 0);
   const bossOverview = isBossManager();
   let html = renderToolbar(bossOverview ? '教練月檢視' : '我的月檢視', bossOverview ? '查看教練與場租人員的排課概況' : `${escapeHtml(currentUser.name)} 的行政排班與教練課程`);
+  if (isAdmin()) html += '<div class="rs-permission-note">管理員：在行政排班項目上按右鍵可複製，於其他日期的格子按右鍵可貼上。同一時間最多 3 位教練。</div>';
   html += '<div class="rs-month-grid">' + ['日', '一', '二', '三', '四', '五', '六'].map(day => `<div class="rs-weekday">${day}</div>`).join('') + '</div>';
   html += '<div class="rs-month-grid" id="rs-month-days">';
   for (let i = first.getDay() - 1; i >= 0; i--) html += monthDayHtml(new Date(year, month, -i), true);
@@ -514,6 +515,7 @@ function renderMonthView(main) {
   html += '</div><div class="rs-stats" id="rs-stats"></div>';
   main.innerHTML = html;
   attachDateNav(main);
+  attachMonthClipboard(main);
   $$('.rs-month-day:not(.other)', main).forEach(day => day.addEventListener('click', () => {
     const key = day.dataset.date;
     if (selectedDateKey === key) { currentDate = parseDate(key); currentView = 'day'; selectedDateKey = null; renderRoot(); renderCurrentView(); }
@@ -528,7 +530,7 @@ function monthDayHtml(date, other) {
   if (isToday(date)) classes.push('today');
   if (selectedDateKey === key) classes.push('selected');
   const items = other ? [] : monthBookingsForUser(key);
-  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}"><strong>${isBossManager() ? `${escapeHtml(ownerLabel(b))}｜` : ''}${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
+  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}" data-booking-id="${escapeHtml(b.id)}"><strong>${isBossManager() ? `${escapeHtml(ownerLabel(b))}｜` : ''}${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
   return `<div class="${classes.join(' ')}" data-date="${key}"><div class="rs-day-number">${date.getDate()}</div>${content}</div>`;
 }
 function statsForOwner(owner, year, month) {
@@ -841,6 +843,33 @@ function attachAdminClipboard(main, dayBookings, dateKey) {
     const bookingElement = target?.closest('[data-booking-id], [data-resize-booking-id]');
     const bookingId = bookingElement?.dataset.bookingId || bookingElement?.dataset.resizeBookingId;
     const booking = bookingId ? dayBookings.find(item => item.id === bookingId) : null;
+    const items = [];
+    if (booking && isAdminSpace(booking.space) && canEditBooking(booking)) {
+      items.push({ label: '📋 複製行政時段', action: () => copyAdminBooking(booking) });
+    }
+    if (adminBookingClipboard) {
+      const sameDate = adminBookingClipboard.date === dateKey;
+      items.push({
+        label: sameDate ? '此日期為複製來源' : `📌 貼上到 ${dateKey}`,
+        disabled: sameDate,
+        action: () => pasteAdminBooking(dateKey),
+      });
+    } else if (!booking) {
+      items.push({ label: '請先在行政卡片上按右鍵複製', disabled: true, action: () => {} });
+    }
+    if (items.length) openAdminContextMenu(event, items);
+  });
+}
+function attachMonthClipboard(main) {
+  const grid = $('#rs-month-days', main);
+  if (!grid || !canCreateAt(1)) return;
+  grid.addEventListener('contextmenu', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    const day = target?.closest('.rs-month-day[data-date]');
+    if (!day) return;
+    const dateKey = day.dataset.date;
+    const bookingId = target?.closest('[data-booking-id]')?.dataset.bookingId;
+    const booking = bookingId ? allBookingsForDate(dateKey).find(item => item.id === bookingId) : null;
     const items = [];
     if (booking && isAdminSpace(booking.space) && canEditBooking(booking)) {
       items.push({ label: '📋 複製行政時段', action: () => copyAdminBooking(booking) });
