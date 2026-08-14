@@ -8,6 +8,7 @@ import {
 } from './admin-schedule-resize.js';
 import {
   applyDateBookingMutation,
+  buildAdminBookingPaste,
   buildDateBookingMutation,
   commitDateBookingMutation,
 } from './schedule-booking-transaction.js';
@@ -52,6 +53,7 @@ let lastModalTrigger = null;
 let toastTimer = null;
 let mutationInProgress = false;
 let adminResizeState = null;
+let adminBookingClipboard = null;
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -184,6 +186,72 @@ function showToast(message) {
   toast.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+}
+function closeAdminContextMenu() {
+  $('#rs-admin-context-menu')?.remove();
+}
+function openAdminContextMenu(event, items) {
+  event.preventDefault();
+  closeAdminContextMenu();
+  const menu = document.createElement('div');
+  menu.id = 'rs-admin-context-menu';
+  menu.className = 'rs-admin-context-menu';
+  menu.setAttribute('role', 'menu');
+  for (const item of items) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('role', 'menuitem');
+    button.textContent = item.label;
+    button.disabled = !!item.disabled;
+    button.addEventListener('click', () => {
+      if (button.disabled) return;
+      closeAdminContextMenu();
+      Promise.resolve(item.action()).catch(error => {
+        console.error('行政時段右鍵操作失敗：', error);
+        showToast('⚠️ 行政時段操作失敗，請稍後再試');
+      });
+    });
+    menu.append(button);
+  }
+  menu.style.left = `${event.clientX}px`;
+  menu.style.top = `${event.clientY}px`;
+  document.body.append(menu);
+  const rect = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(8, Math.min(event.clientX, window.innerWidth - rect.width - 8))}px`;
+  menu.style.top = `${Math.max(8, Math.min(event.clientY, window.innerHeight - rect.height - 8))}px`;
+  menu.querySelector('button:not([disabled])')?.focus({ preventScroll: true });
+}
+function copyAdminBooking(booking) {
+  adminBookingClipboard = { ...booking };
+  showToast(`📋 已複製 ${booking.date} ${booking.time}–${endTime(booking.time, booking.duration)} ${ownerLabel(booking)}行政時段`);
+}
+async function pasteAdminBooking(dateKey) {
+  if (!adminBookingClipboard) {
+    showToast('⚠️ 請先在行政卡片上按右鍵複製');
+    return;
+  }
+  if (mutationInProgress) {
+    showToast('⏳ 上一筆排課仍在儲存，請稍候');
+    return;
+  }
+  const prepared = buildAdminBookingPaste({
+    source: adminBookingClipboard,
+    targetDate: dateKey,
+    id: firebaseId(dateKey),
+  });
+  if (!prepared) {
+    showToast('⚠️ 行政時段只能貼到其他日期');
+    return;
+  }
+  mutationInProgress = true;
+  try {
+    const ok = await persistChanges(dateKey, prepared.mutation);
+    if (!ok) return;
+    showToast(`✅ 已貼上 ${prepared.booking.time}–${endTime(prepared.booking.time, prepared.booking.duration)} ${ownerLabel(prepared.booking)}行政時段`);
+    renderCurrentView();
+  } finally {
+    mutationInProgress = false;
+  }
 }
 function setDataError(message, error) {
   dataStatus = 'error';
@@ -412,10 +480,13 @@ function logout() {
   currentUser = null;
   localStorage.removeItem(SESSION_KEY);
   modalState = null;
+  adminBookingClipboard = null;
+  closeAdminContextMenu();
   renderRoot();
 }
 function renderCurrentView() {
   if (!isLoggedIn()) return;
+  closeAdminContextMenu();
   if (adminResizeState) clearAdminResizeState();
   const main = $('#rs-main');
   if (!main) { renderRoot(); return; }
@@ -775,11 +846,36 @@ function attachAdminResize(main, dayBookings, dateKey) {
     });
   });
 }
+function attachAdminClipboard(main, dayBookings, dateKey) {
+  const timeline = $('.rs-admin-timeline', main);
+  if (!timeline || !canCreateAt(1)) return;
+  timeline.addEventListener('contextmenu', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    const bookingElement = target?.closest('[data-booking-id], [data-resize-booking-id]');
+    const bookingId = bookingElement?.dataset.bookingId || bookingElement?.dataset.resizeBookingId;
+    const booking = bookingId ? dayBookings.find(item => item.id === bookingId) : null;
+    const items = [];
+    if (booking && isAdminSpace(booking.space) && canEditBooking(booking)) {
+      items.push({ label: '📋 複製行政時段', action: () => copyAdminBooking(booking) });
+    }
+    if (adminBookingClipboard) {
+      const sameDate = adminBookingClipboard.date === dateKey;
+      items.push({
+        label: sameDate ? '此日期為複製來源' : `📌 貼上到 ${dateKey}`,
+        disabled: sameDate,
+        action: () => pasteAdminBooking(dateKey),
+      });
+    } else if (!booking) {
+      items.push({ label: '請先在行政卡片上按右鍵複製', disabled: true, action: () => {} });
+    }
+    if (items.length) openAdminContextMenu(event, items);
+  });
+}
 function renderDayView(main) {
   const dateKey = fmtDate(currentDate);
   const dayBookings = allBookingsForDate(dateKey);
   let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表`);
-  html += `<div class="rs-permission-note">${isAdmin() ? `管理員：拖曳行政卡片上下邊框可調整時間（每格 15 分鐘）；同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '一般使用者：可編輯教練課與「其他」課程；行政時段僅管理員可編輯。'}</div>`;
+  html += `<div class="rs-permission-note">${isAdmin() ? `管理員：拖曳行政卡片上下邊框可調整時間；在行政卡片按右鍵可複製，切換日期後於行政欄按右鍵貼上。同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '一般使用者：可編輯教練課與「其他」課程；行政時段僅管理員可編輯。'}</div>`;
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
   for (let slot = 0; slot < SLOTS_PER_DAY; slot++) {
     html += `<tr class="${slot % 4 === 0 ? 'hour' : ''}"><td class="time">${slotToTime(slot)}</td>`;
@@ -810,6 +906,7 @@ function renderDayView(main) {
     if (booking) openEditModal(booking, dateKey, cell);
   }));
   attachAdminResize(main, dayBookings, dateKey);
+  attachAdminClipboard(main, dayBookings, dateKey);
 }
 function buildModal(mode, booking, space, slot, dateKey) {
   const editing = mode === 'edit';
@@ -1029,6 +1126,11 @@ function boot() {
   if (currentUser) renderCurrentView();
   initDataLayer();
   document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && $('#rs-admin-context-menu')) {
+      event.preventDefault();
+      closeAdminContextMenu();
+      return;
+    }
     if (event.key === 'Escape' && adminResizeState) {
       event.preventDefault();
       clearAdminResizeState();
@@ -1037,6 +1139,12 @@ function boot() {
     }
     if (event.key === 'Escape' && modalState && !mutationInProgress) closeModal();
   });
+  document.addEventListener('pointerdown', event => {
+    const menu = $('#rs-admin-context-menu');
+    if (menu && !menu.contains(event.target)) closeAdminContextMenu();
+  });
+  document.addEventListener('scroll', closeAdminContextMenu, true);
+  window.addEventListener('blur', closeAdminContextMenu);
 }
 
 boot();

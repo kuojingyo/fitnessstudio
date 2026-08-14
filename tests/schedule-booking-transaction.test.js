@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import * as bookingTransactionModule from '../src/schedule-booking-transaction.js';
 
 import {
   applyDateBookingMutation,
@@ -850,4 +851,71 @@ test('團課改一般課時保留目前空間舊 id 並原子刪除其餘成員'
   assert.deepEqual(Object.keys(result.value), [kept.id]);
   assert.equal(result.value[kept.id].kind, 'coach');
   assert.equal(Object.hasOwn(result.value[kept.id], 'groupId'), false);
+});
+
+test('跨日期貼上行政時段會建立新 id 並只複製可排課欄位', () => {
+  const source = {
+    id: 'source-admin',
+    date: '2026-08-14',
+    space: 1,
+    owner: '其他',
+    nickname: '代班教練',
+    kind: 'admin',
+    time: '09:30',
+    duration: 120,
+    remark: '開店行政',
+    createdAt: 100,
+    groupId: 'must-not-copy',
+    serverOnly: 'must-not-copy',
+  };
+
+  const result = bookingTransactionModule.buildAdminBookingPaste({
+    source,
+    targetDate: '2026-08-15',
+    id: 'new-admin',
+    createdAt: 200,
+  });
+
+  const booking = {
+    id: 'new-admin',
+    date: '2026-08-15',
+    space: 1,
+    owner: '其他',
+    nickname: '代班教練',
+    kind: 'admin',
+    time: '09:30',
+    duration: 120,
+    remark: '開店行政',
+    createdAt: 200,
+  };
+  assert.deepEqual(result, {
+    booking,
+    mutation: buildDateBookingMutation({ mode: 'create', records: [booking] }),
+  });
+});
+
+test('行政時段不可貼回來源日期', () => {
+  const source = adminBooking('source-admin');
+
+  const result = bookingTransactionModule.buildAdminBookingPaste({
+    source,
+    targetDate: source.date,
+    id: 'new-admin',
+    createdAt: 200,
+  });
+
+  assert.equal(result, null);
+});
+
+test('一般教練課不可透過行政右鍵功能貼上', () => {
+  const source = regularBooking('source-coach', 2, '史昕銓', '09:00');
+
+  const result = bookingTransactionModule.buildAdminBookingPaste({
+    source,
+    targetDate: '2026-08-15',
+    id: 'new-admin',
+    createdAt: 200,
+  });
+
+  assert.equal(result, null);
 });

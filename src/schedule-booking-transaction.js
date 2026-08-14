@@ -220,6 +220,29 @@ export function buildDateBookingMutation({
   };
 }
 
+export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Date.now() }) {
+  if (!source
+    || Number(source.space) !== ADMIN_SPACE
+    || normalizedKind(source) !== 'admin'
+    || String(source.date ?? '') === String(targetDate ?? '')) return null;
+  const booking = {
+    id: String(id),
+    date: String(targetDate),
+    space: ADMIN_SPACE,
+    owner: source.owner,
+    kind: 'admin',
+    time: String(source.time).trim(),
+    duration: Number(source.duration),
+    createdAt,
+  };
+  if (source.nickname) booking.nickname = String(source.nickname);
+  if (source.remark) booking.remark = String(source.remark);
+  return {
+    booking,
+    mutation: buildDateBookingMutation({ mode: 'create', records: [booking] }),
+  };
+}
+
 function ownerHasConflict(dateNode, targetKey) {
   const target = dateNode[targetKey];
   const targetOwner = normalizedOwner(target?.owner);
