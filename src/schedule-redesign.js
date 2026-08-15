@@ -8,10 +8,14 @@ import {
 } from './admin-schedule-resize.js';
 import {
   applyDateBookingMutation,
+  bookingOwnerIdentity,
+  bookingSpaceNumber,
+  bookingDurationNumber,
   bookingMutationErrorMessage,
   buildAdminBookingPaste,
   buildDateBookingMutation,
   commitDateBookingMutation,
+  isSchedulableBookingOwner,
 } from './schedule-booking-transaction.js';
 
 const ROOT_PATH = 'scheduleV2Bookings';
@@ -26,7 +30,6 @@ const USERS = {
 };
 const OTHER_OWNER = '其他';
 const SCHEDULABLE_USERS = ['史昕銓', '高芷妍', '潘閱滔'];
-const SCHEDULABLE_OWNERS = new Set([...SCHEDULABLE_USERS, OTHER_OWNER]);
 const TEAM_SPACES = [7, 8, 9];
 const SPACES = 9;
 const SPACE_NAMES = ['行政時段', '一樓槓座', '一樓史密斯', '一樓cable', '一樓機動空間', '二樓槓座', '二樓自由重量(1)', '二樓自由重量(2)', '二樓機動空間'];
@@ -106,8 +109,8 @@ function normalizeBookings(value) {
     for (const [recordId, item] of entries) {
       if (!item || typeof item !== 'object') { ignoredCount++; continue; }
       const id = String(item.id ?? recordId ?? '').trim();
-      const space = Number(item.space);
-      const duration = Number(item.duration);
+      const space = bookingSpaceNumber(item.space);
+      const duration = bookingDurationNumber(item.duration);
       const storedOwner = typeof item.owner === 'string' ? item.owner.trim() : '';
       const owner = storedOwner === 'admin' ? '老闆' : storedOwner;
       const time = typeof item.time === 'string' ? item.time.trim() : '';
@@ -170,11 +173,12 @@ function conflictingBooking(list, space, time, duration, excludeIds = [], owner,
     return overlaps(time, duration, b.time, b.duration);
   }) || null;
 }
-function conflictingOwner(list, time, duration, excludeIds = [], owner, kind) {
-  if (owner === OTHER_OWNER) return null;
+function conflictingOwner(list, time, duration, excludeIds = [], owner, nickname) {
+  const ownerIdentity = bookingOwnerIdentity({ owner, nickname });
+  if (!ownerIdentity) return null;
   return list.find(b => {
-    if (!b || excludeIds.includes(b.id) || b.owner === OTHER_OWNER) return false;
-    if (b.owner !== owner) return false;
+    if (!b || excludeIds.includes(b.id)) return false;
+    if (bookingOwnerIdentity(b) !== ownerIdentity) return false;
     return overlaps(time, duration, b.time, b.duration);
   }) || null;
 }
@@ -497,7 +501,7 @@ function attachDateNav(container) {
   $('[data-today]', container)?.addEventListener('click', () => { currentDate = new Date(); selectedDateKey = null; renderCurrentView(); });
 }
 function monthBookingsForUser(dateKey) {
-  const list = bookingsForDate(dateKey).filter(b => isBossManager() ? SCHEDULABLE_OWNERS.has(b.owner) : b.owner === currentUser.name);
+  const list = bookingsForDate(dateKey).filter(b => isBossManager() ? isSchedulableBookingOwner(b.owner) : b.owner === currentUser.name);
   return uniqueTeamBookings(list).sort((a, b) => timeToSlot(a.time) - timeToSlot(b.time));
 }
 function renderMonthView(main) {
@@ -1037,7 +1041,7 @@ function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, rema
 }
 function targetSpaces(kind, space) { return kind === 'team' ? TEAM_SPACES : [Number(space)]; }
 function validateBooking(values, state, existingIds = []) {
-  if (!SCHEDULABLE_OWNERS.has(values.owner)) return '老闆帳號僅供管理，不能被安排課程。';
+  if (!isSchedulableBookingOwner(values.owner)) return '老闆帳號僅供管理，不能被安排課程。';
   if (!isAdmin() && values.owner !== currentUser.name && values.owner !== OTHER_OWNER) return '一般使用者只能安排自己或「其他」教練的課程。';
   if (values.owner === OTHER_OWNER && !values.nickname) return '請輸入「其他」的暱稱。';
   if (values.kind === 'team' && !isTeamSpace(state.space)) return '團課只能安排在二樓自由重量區。';
@@ -1060,7 +1064,7 @@ function validateBooking(values, state, existingIds = []) {
     const conflict = conflictingBooking(list, target, slotToTime(state.slot), values.duration, existingIds, values.owner, values.kind);
     if (conflict) return `${spaceName(target)} 在此時段已有 ${ownerLabel(conflict)} 的排課。`;
   }
-  const ownerConflict = conflictingOwner(list, slotToTime(state.slot), values.duration, existingIds, values.owner, values.kind);
+  const ownerConflict = conflictingOwner(list, slotToTime(state.slot), values.duration, existingIds, values.owner, values.nickname);
   if (ownerConflict) return `${values.owner} 在此時段已有其他排課。`;
   return null;
 }

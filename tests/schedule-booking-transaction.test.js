@@ -958,3 +958,181 @@ test('教練衝突訊息使用新增、貼上與調整都適用的通用文字',
 
   assert.equal(message, '⚠️ 此操作會與同一位教練的其他排課重疊。');
 });
+
+test('目標日期含無效場地資料時行政貼上必須 fail closed', () => {
+  const source = {
+    id: 'source-admin', date: '2026-08-14', space: 1, owner: '史昕銓',
+    kind: 'admin', time: '09:00', duration: 60,
+  };
+  const prepared = bookingTransactionModule.buildAdminBookingPaste({
+    source,
+    targetDate: '2026-08-15',
+    id: 'pasted-admin',
+    createdAt: 123,
+  });
+  const current = {
+    malformed: {
+      id: 'malformed', date: '2026-08-15', space: 99, owner: '潘閱滔',
+      kind: 'coach', time: '09:00', duration: 75,
+    },
+  };
+
+  const result = applyDateBookingMutation(current, prepared.mutation);
+
+  assert.deepEqual(result, { ok: false, value: current, reason: 'invalid-booking-data' });
+});
+
+test('行政貼上不得把歷史 admin 或老闆資料建立成新排班', () => {
+  for (const owner of ['admin', '老闆']) {
+    const prepared = bookingTransactionModule.buildAdminBookingPaste({
+      source: {
+        id: `source-${owner}`, date: '2026-08-14', space: 1, owner,
+        kind: 'admin', time: '09:00', duration: 60,
+      },
+      targetDate: '2026-08-15',
+      id: `pasted-${owner}`,
+      createdAt: 123,
+    });
+
+    assert.equal(prepared, null, `${owner} 僅供歷史資料讀取，不得建立新排班`);
+  }
+});
+
+test('行政貼上不得複製不在可排課名單內的未知教練', () => {
+  const prepared = bookingTransactionModule.buildAdminBookingPaste({
+    source: {
+      id: 'source-unknown', date: '2026-08-14', space: 1, owner: '未知教練',
+      kind: 'admin', time: '09:00', duration: 60,
+    },
+    targetDate: '2026-08-15',
+    id: 'pasted-unknown',
+    createdAt: 123,
+  });
+
+  assert.equal(prepared, null);
+});
+
+test('行政貼上不得複製缺少暱稱的其他教練資料', () => {
+  const prepared = bookingTransactionModule.buildAdminBookingPaste({
+    source: {
+      id: 'source-other', date: '2026-08-14', space: 1, owner: '其他',
+      kind: 'admin', time: '09:00', duration: 60,
+    },
+    targetDate: '2026-08-15',
+    id: 'pasted-other',
+    createdAt: 123,
+  });
+
+  assert.equal(prepared, null);
+});
+
+test('其他教練以暱稱辨識同一人並只阻擋同暱稱重疊', () => {
+  const existing = {
+    id: 'existing-other', date: '2026-08-15', space: 1, owner: '其他',
+    nickname: '代班教練', kind: 'admin', time: '10:30', duration: 60,
+  };
+  const prepare = (nickname, id) => bookingTransactionModule.buildAdminBookingPaste({
+    source: {
+      id: `source-${id}`, date: '2026-08-14', space: 1, owner: '其他',
+      nickname, kind: 'admin', time: '10:00', duration: 60,
+    },
+    targetDate: '2026-08-15',
+    id,
+    createdAt: 123,
+  });
+  const current = { [existing.id]: { ...existing } };
+
+  const sameNickname = applyDateBookingMutation(
+    current,
+    prepare('代班教練', 'same-nickname').mutation,
+  );
+  const differentNickname = applyDateBookingMutation(
+    current,
+    prepare('另一位教練', 'different-nickname').mutation,
+  );
+
+  assert.deepEqual(sameNickname, {
+    ok: false,
+    value: current,
+    reason: 'owner-conflict',
+  });
+  assert.equal(differentNickname.ok, true);
+});
+
+test('transaction 拒絕可被 Number 強制轉成場地的畸形值', () => {
+  const prepared = bookingTransactionModule.buildAdminBookingPaste({
+    source: {
+      id: 'source-admin', date: '2026-08-14', space: 1, owner: '史昕銓',
+      kind: 'admin', time: '09:00', duration: 60,
+    },
+    targetDate: '2026-08-15',
+    id: 'pasted-admin',
+    createdAt: 123,
+  });
+
+  for (const [index, space] of [true, [1], '1e0', '01'].entries()) {
+    const id = `malformed-space-${index}`;
+    const current = {
+      [id]: {
+        id, date: '2026-08-15', space, owner: '潘閱滔',
+        kind: 'admin', time: '09:00', duration: 60,
+      },
+    };
+
+    const result = applyDateBookingMutation(current, prepared.mutation);
+
+    assert.deepEqual(result, {
+      ok: false,
+      value: current,
+      reason: 'invalid-booking-data',
+    });
+  }
+});
+
+test('transaction 拒絕可被 Number 強制轉成時長的畸形值', () => {
+  const prepared = bookingTransactionModule.buildAdminBookingPaste({
+    source: {
+      id: 'source-admin', date: '2026-08-14', space: 1, owner: '史昕銓',
+      kind: 'admin', time: '09:00', duration: 60,
+    },
+    targetDate: '2026-08-15',
+    id: 'pasted-admin',
+    createdAt: 123,
+  });
+
+  for (const [index, duration] of [[15], '7.5e1', '075'].entries()) {
+    const id = `malformed-coach-duration-${index}`;
+    const current = {
+      [id]: {
+        id, date: '2026-08-15', space: 2, owner: '潘閱滔',
+        kind: 'coach', time: '09:00', duration,
+      },
+    };
+
+    const result = applyDateBookingMutation(current, prepared.mutation);
+
+    assert.deepEqual(result, {
+      ok: false,
+      value: current,
+      reason: 'invalid-booking-data',
+    });
+  }
+
+  for (const [index, duration] of [[60], '6e1', '060'].entries()) {
+    const id = `malformed-admin-duration-${index}`;
+    const current = {
+      [id]: {
+        id, date: '2026-08-15', space: 1, owner: '潘閱滔',
+        kind: 'admin', time: '09:00', duration,
+      },
+    };
+
+    const result = applyDateBookingMutation(current, prepared.mutation);
+
+    assert.deepEqual(result, {
+      ok: false,
+      value: current,
+      reason: 'invalid-booking-data',
+    });
+  }
+});

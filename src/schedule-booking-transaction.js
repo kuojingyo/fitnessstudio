@@ -7,10 +7,12 @@ const CLOSE_MINUTES = 22 * 60;
 const SLOT_MINUTES = 15;
 const MIN_ADMIN_DURATION = 30;
 const MAX_ADMIN_DURATION = 240;
+const MAX_SPACE = 9;
 const TIME_PATTERN = /^(\d{2}):(\d{2})$/;
 const DANGEROUS_CHILD_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const PATCH_EXPECTED_FIELDS = ['time', 'duration', 'space', 'owner', 'kind'];
 const TEAM_SPACES = [7, 8, 9];
+const SCHEDULABLE_OWNERS = new Set(['史昕銓', '高芷妍', '潘閱滔', OTHER_OWNER]);
 
 export function bookingMutationErrorMessage(reason) {
   if (reason === 'admin-capacity') return `⚠️ 行政時段同一時間最多安排 ${ADMIN_CAPACITY} 位教練。`;
@@ -30,6 +32,20 @@ export function bookingMutationErrorMessage(reason) {
 function isSafeBookingId(value) {
   const id = String(value ?? '').trim();
   return !!id && !DANGEROUS_CHILD_KEYS.has(id);
+}
+
+export function bookingSpaceNumber(value) {
+  if (typeof value === 'number') return Number.isInteger(value) ? value : null;
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return /^[1-9]$/.test(normalized) ? Number(normalized) : null;
+}
+
+export function bookingDurationNumber(value) {
+  if (typeof value === 'number') return Number.isInteger(value) ? value : null;
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return /^[1-9][0-9]*$/.test(normalized) ? Number(normalized) : null;
 }
 
 function normalizeCurrentDateNode(currentValue) {
@@ -60,7 +76,7 @@ function bookingRangeMinutes(booking) {
   if (!match) return null;
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
-  const duration = Number(booking.duration);
+  const duration = bookingDurationNumber(booking.duration);
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)
     || hours < 0 || hours > 23 || minutes < 0 || minutes > 59
     || !Number.isInteger(duration) || duration <= 0) return null;
@@ -70,7 +86,7 @@ function bookingRangeMinutes(booking) {
 }
 
 function adminBookingRange(booking) {
-  if (Number(booking?.space) !== ADMIN_SPACE) return null;
+  if (bookingSpaceNumber(booking?.space) !== ADMIN_SPACE) return null;
   const range = bookingRangeMinutes(booking);
   if (!range) return null;
   const start = (range.start - OPEN_MINUTES) / SLOT_MINUTES;
@@ -79,9 +95,9 @@ function adminBookingRange(booking) {
 }
 
 function hasValidAdminRange(booking) {
-  if (Number(booking?.space) !== ADMIN_SPACE) return true;
+  if (bookingSpaceNumber(booking?.space) !== ADMIN_SPACE) return true;
   const range = bookingRangeMinutes(booking);
-  const duration = Number(booking?.duration);
+  const duration = bookingDurationNumber(booking?.duration);
   return !!range
     && range.start >= OPEN_MINUTES
     && range.end <= CLOSE_MINUTES
@@ -92,9 +108,11 @@ function hasValidAdminRange(booking) {
 }
 
 function hasValidBookingRange(booking) {
-  if (Number(booking?.space) === ADMIN_SPACE) return hasValidAdminRange(booking);
+  const space = bookingSpaceNumber(booking?.space);
+  if (!Number.isInteger(space) || space < ADMIN_SPACE || space > MAX_SPACE) return false;
+  if (space === ADMIN_SPACE) return hasValidAdminRange(booking);
   const range = bookingRangeMinutes(booking);
-  const duration = Number(booking?.duration);
+  const duration = bookingDurationNumber(booking?.duration);
   return !!range
     && range.start >= OPEN_MINUTES
     && range.end <= CLOSE_MINUTES
@@ -158,6 +176,18 @@ function findBookingEntry(dateNode, id) {
 function normalizedOwner(owner) {
   const value = typeof owner === 'string' ? owner.trim() : owner;
   return value === 'admin' ? '老闆' : value;
+}
+
+export function isSchedulableBookingOwner(owner) {
+  return SCHEDULABLE_OWNERS.has(normalizedOwner(owner));
+}
+
+export function bookingOwnerIdentity(booking) {
+  const owner = normalizedOwner(booking?.owner);
+  if (typeof owner !== 'string' || !owner) return '';
+  if (owner !== OTHER_OWNER) return `owner:${owner}`;
+  const nickname = String(booking?.nickname ?? '').trim();
+  return nickname ? `other:${nickname}` : '';
 }
 
 function normalizedKind(booking) {
@@ -238,12 +268,15 @@ export function buildDateBookingMutation({
 export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Date.now() }) {
   const destinationDate = String(targetDate ?? '').trim();
   const sourceOwner = normalizedOwner(source?.owner);
+  const sourceNickname = String(source?.nickname ?? '').trim();
   if (!source
     || !isSafeBookingId(id)
     || !/^\d{4}-\d{2}-\d{2}$/.test(destinationDate)
     || typeof sourceOwner !== 'string'
     || !sourceOwner.trim()
-    || Number(source.space) !== ADMIN_SPACE
+    || !isSchedulableBookingOwner(sourceOwner)
+    || (sourceOwner === OTHER_OWNER && !sourceNickname)
+    || bookingSpaceNumber(source.space) !== ADMIN_SPACE
     || normalizedKind(source) !== 'admin'
     || String(source.date ?? '').trim() === destinationDate) return null;
   const booking = {
@@ -256,7 +289,7 @@ export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Dat
     duration: Number(source.duration),
     createdAt,
   };
-  if (source.nickname) booking.nickname = String(source.nickname);
+  if (sourceNickname) booking.nickname = sourceNickname;
   if (source.remark) booking.remark = String(source.remark);
   return {
     booking,
@@ -266,13 +299,12 @@ export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Dat
 
 function ownerHasConflict(dateNode, targetKey) {
   const target = dateNode[targetKey];
-  const targetOwner = normalizedOwner(target?.owner);
-  if (!target || targetOwner === OTHER_OWNER) return false;
+  const targetOwnerIdentity = bookingOwnerIdentity(target);
+  if (!target || !targetOwnerIdentity) return false;
   const targetRange = bookingRangeMinutes(target);
   if (!targetRange) return false;
   return Object.entries(dateNode).some(([key, booking]) => {
-    const bookingOwner = normalizedOwner(booking?.owner);
-    if (key === targetKey || !booking || bookingOwner !== targetOwner || bookingOwner === OTHER_OWNER) return false;
+    if (key === targetKey || !booking || bookingOwnerIdentity(booking) !== targetOwnerIdentity) return false;
     const sameTeamGroup = normalizedKind(target) === 'team'
       && normalizedKind(booking) === 'team'
       && target.groupId
