@@ -17,6 +17,7 @@ import {
   commitDateBookingMutation,
   isSchedulableBookingOwner,
 } from './schedule-booking-transaction.js';
+import { createIdleTimeout, IDLE_TIMEOUT_MS } from './schedule-idle-timeout.js';
 
 const ROOT_PATH = 'scheduleV2Bookings';
 const FALLBACK_KEY = 'relife_schedule_v2_bookings';
@@ -49,6 +50,7 @@ let dataStatus = 'loading';
 let dataErrorMessage = '';
 let rawBookings = {};
 let currentUser = null;
+let idleTimeout = null;
 let currentDate = new Date();
 let currentView = 'month';
 let selectedDateKey = null;
@@ -423,7 +425,7 @@ function renderLogin(root) {
     <div class="rs-field"><label for="rs-login-password">密碼</label><input id="rs-login-password" type="password" inputmode="text" autocomplete="current-password" autofocus></div>
     <div class="rs-error" id="rs-login-error" role="alert" aria-live="polite">${escapeHtml(dataErrorMessage)}</div>
     <button class="rs-primary" type="submit">登入</button>
-  </form></div>`;
+  </form><div class="rs-toast" id="rs-toast" role="status" aria-live="polite" aria-atomic="true"></div></div>`;
   $('#rs-login-form').addEventListener('submit', event => {
     event.preventDefault();
     const user = $('#rs-login-user').value;
@@ -437,6 +439,7 @@ function renderLogin(root) {
     localStorage.setItem(SESSION_KEY, user);
     currentView = 'month';
     currentDate = new Date();
+    startIdleTimeout();
     renderRoot();
     renderCurrentView();
   });
@@ -467,13 +470,37 @@ function renderShell(root) {
   $('#rs-day-btn').addEventListener('click', () => { currentView = 'day'; selectedDateKey = null; renderRoot(); renderCurrentView(); });
   $('#rs-logout').addEventListener('click', logout);
 }
-function logout() {
+const IDLE_EVENT_TYPES = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'];
+
+function startIdleTimeout() {
+  disposeIdleTimeout();
+  idleTimeout = createIdleTimeout({
+    timeoutMs: FORCE_LOCAL_DEMO ? 12000 : IDLE_TIMEOUT_MS,
+    onIdle() { logout('idle'); },
+  });
+  for (const type of IDLE_EVENT_TYPES) {
+    window.addEventListener(type, idleTimeout.reset, { passive: true, capture: true });
+  }
+}
+
+function disposeIdleTimeout() {
+  if (!idleTimeout) return;
+  for (const type of IDLE_EVENT_TYPES) {
+    window.removeEventListener(type, idleTimeout.reset, { capture: true });
+  }
+  idleTimeout.dispose();
+  idleTimeout = null;
+}
+
+function logout(reason) {
+  disposeIdleTimeout();
   currentUser = null;
   localStorage.removeItem(SESSION_KEY);
   modalState = null;
   adminBookingClipboard = null;
   closeAdminContextMenu();
   renderRoot();
+  if (reason === 'idle') showToast('🔒 已連續 30 分鐘未操作，為安全起見已自動登出。');
 }
 function renderCurrentView() {
   if (!isLoggedIn()) return;
@@ -1143,7 +1170,10 @@ function boot() {
   const saved = localStorage.getItem(SESSION_KEY);
   if (saved && USERS[saved]) currentUser = USERS[saved];
   renderRoot();
-  if (currentUser) renderCurrentView();
+  if (currentUser) {
+    startIdleTimeout();
+    renderCurrentView();
+  }
   initDataLayer();
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && $('#rs-admin-context-menu')) {

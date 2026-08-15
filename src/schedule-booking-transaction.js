@@ -193,13 +193,14 @@ export function bookingOwnerIdentity(booking) {
 function normalizedKind(booking) {
   return ['admin', 'coach', 'team'].includes(booking?.kind)
     ? booking.kind
-    : (Number(booking?.space) === ADMIN_SPACE ? 'admin' : 'coach');
+    : (bookingSpaceNumber(booking?.space) === ADMIN_SPACE ? 'admin' : 'coach');
 }
 
 function hasExpectedValues(booking, expected = {}) {
   return Object.entries(expected).every(([key, value]) => {
     if (key === 'owner') return normalizedOwner(booking?.[key]) === normalizedOwner(value);
-    if (key === 'space' || key === 'duration') return Number(booking?.[key]) === Number(value);
+    if (key === 'space') return bookingSpaceNumber(booking?.[key]) === bookingSpaceNumber(value);
+    if (key === 'duration') return bookingDurationNumber(booking?.[key]) === bookingDurationNumber(value);
     if (key === 'time') return String(booking?.[key] ?? '').trim() === String(value ?? '').trim();
     if (key === 'kind') {
       return normalizedKind(booking) === normalizedKind({
@@ -268,8 +269,9 @@ export function buildDateBookingMutation({
 export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Date.now() }) {
   const destinationDate = String(targetDate ?? '').trim();
   const sourceOwner = normalizedOwner(source?.owner);
-  const sourceNickname = String(source?.nickname ?? '').trim();
-  if (!source
+  const sourceNickname = typeof source?.nickname === 'string' ? source.nickname.trim() : '';
+  const sourceDuration = bookingDurationNumber(source?.duration);
+  if (!source || typeof source !== 'object'
     || !isSafeBookingId(id)
     || !/^\d{4}-\d{2}-\d{2}$/.test(destinationDate)
     || typeof sourceOwner !== 'string'
@@ -277,6 +279,7 @@ export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Dat
     || !isSchedulableBookingOwner(sourceOwner)
     || (sourceOwner === OTHER_OWNER && !sourceNickname)
     || bookingSpaceNumber(source.space) !== ADMIN_SPACE
+    || sourceDuration == null
     || normalizedKind(source) !== 'admin'
     || String(source.date ?? '').trim() === destinationDate) return null;
   const booking = {
@@ -286,7 +289,7 @@ export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Dat
     owner: sourceOwner.trim(),
     kind: 'admin',
     time: String(source.time).trim(),
-    duration: Number(source.duration),
+    duration: sourceDuration,
     createdAt,
   };
   if (sourceNickname) booking.nickname = sourceNickname;
@@ -317,12 +320,12 @@ function ownerHasConflict(dateNode, targetKey) {
 
 function spaceHasConflict(dateNode, targetKey) {
   const target = dateNode[targetKey];
-  const targetSpace = Number(target?.space);
+  const targetSpace = bookingSpaceNumber(target?.space);
   if (!target || targetSpace === ADMIN_SPACE) return false;
   const targetRange = bookingRangeMinutes(target);
   if (!targetRange) return false;
   return Object.entries(dateNode).some(([key, booking]) => {
-    if (key === targetKey || !booking || Number(booking.space) !== targetSpace) return false;
+    if (key === targetKey || !booking || bookingSpaceNumber(booking.space) !== targetSpace) return false;
     const range = bookingRangeMinutes(booking);
     return range ? targetRange.start < range.end && targetRange.end > range.start : false;
   });
@@ -330,7 +333,7 @@ function spaceHasConflict(dateNode, targetKey) {
 
 function hasValidTeamGroup(groupId, members) {
   if (!isSafeBookingId(groupId)) return false;
-  const spaces = members.map(member => Number(member.space)).sort((a, b) => a - b);
+  const spaces = members.map(member => bookingSpaceNumber(member.space)).sort((a, b) => a - b);
   if (spaces.length !== TEAM_SPACES.length
     || spaces.some((space, index) => space !== TEAM_SPACES[index])) return false;
   const first = members[0];
@@ -340,7 +343,7 @@ function hasValidTeamGroup(groupId, members) {
     && String(member.date ?? '') === String(first.date ?? '')
     && normalizedOwner(member.owner) === normalizedOwner(first.owner)
     && String(member.time ?? '').trim() === String(first.time ?? '').trim()
-    && Number(member.duration) === Number(first.duration)
+    && bookingDurationNumber(member.duration) === bookingDurationNumber(first.duration)
   ));
 }
 
@@ -373,7 +376,7 @@ function validateExpectedGroups(dateNode, expectedGroups) {
       .filter(booking => String(booking?.groupId ?? '').trim() === groupId);
     const remoteIds = remoteMembers.map(booking => String(booking.id)).sort();
     const expectedIds = memberIds.map(String).sort();
-    const remoteSpaces = remoteMembers.map(booking => Number(booking.space)).sort((a, b) => a - b);
+    const remoteSpaces = remoteMembers.map(booking => bookingSpaceNumber(booking.space)).sort((a, b) => a - b);
     if (remoteIds.length !== expectedIds.length
       || remoteIds.some((id, index) => id !== expectedIds[index])
       || remoteSpaces.length !== TEAM_SPACES.length
@@ -483,9 +486,9 @@ export function applyDateBookingMutation(currentValue, mutation) {
   }
 
   const writesAdminBooking = [...additions, ...replacements, ...patchedKeys.map(key => next[key])]
-    .some(booking => Number(booking?.space) === ADMIN_SPACE);
+    .some(booking => bookingSpaceNumber(booking?.space) === ADMIN_SPACE);
   const affectedAdminBookings = [...additions, ...replacements, ...patchedKeys.map(key => next[key])]
-    .filter(booking => Number(booking?.space) === ADMIN_SPACE);
+    .filter(booking => bookingSpaceNumber(booking?.space) === ADMIN_SPACE);
   if (affectedAdminBookings.some(booking => !hasValidAdminRange(booking))) {
     return { ok: false, value: currentValue ?? null, reason: 'admin-range' };
   }

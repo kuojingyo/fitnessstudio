@@ -953,6 +953,17 @@ test('行政貼上不得複製缺少教練名稱的異常來源資料', () => {
   assert.equal(result, null);
 });
 
+test('行政貼上來源為 null 或 undefined 時回傳 null 而非拋例外', () => {
+  assert.equal(
+    bookingTransactionModule.buildAdminBookingPaste({ source: null, targetDate: '2026-08-15', id: 'x' }),
+    null,
+  );
+  assert.equal(
+    bookingTransactionModule.buildAdminBookingPaste({ source: undefined, targetDate: '2026-08-15', id: 'x' }),
+    null,
+  );
+});
+
 test('教練衝突訊息使用新增、貼上與調整都適用的通用文字', () => {
   const message = bookingTransactionModule.bookingMutationErrorMessage?.('owner-conflict');
 
