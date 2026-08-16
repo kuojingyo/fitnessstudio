@@ -161,7 +161,17 @@ function ownerChoices() {
   if (isAdmin()) return [...SCHEDULABLE_USERS, OTHER_OWNER];
   return SCHEDULABLE_USERS.includes(currentUser?.name) ? [currentUser.name, OTHER_OWNER] : [OTHER_OWNER];
 }
-function canCreateAt(space) { return isDataReady() && (isAdmin() || !isAdminSpace(space)); }
+function canCreateAt(space, dateKey) {
+  if (!isDataReady()) return false;
+  if (isAdmin()) return true;
+  if (isAdminSpace(space)) return false;
+  return canModifyPastBooking(currentUser.name, dateKey, fmtDate(new Date()));
+}
+function createDeniedByPastDate(space, dateKey) {
+  return !isAdmin()
+    && !isAdminSpace(space)
+    && !canModifyPastBooking(currentUser.name, dateKey, fmtDate(new Date()));
+}
 function canEditBooking(booking) {
   if (!currentUser || !isDataReady()) return false;
   if (isAdmin()) return true;
@@ -993,8 +1003,9 @@ function renderDayView(main) {
       const booking = findBookingAtSlot(dayBookings, space, slot);
       if (booking && timeToSlot(booking.time) !== slot) continue;
       if (!booking) {
-        const clickable = canCreateAt(space);
-        html += `<td class="rs-slot empty" ${clickable ? `data-create-space="${space}" data-create-slot="${slot}"` : 'title="只有管理員可以編輯行政時段"'}></td>`;
+        const clickable = canCreateAt(space, dateKey);
+        const blockedByPastDate = !clickable && createDeniedByPastDate(space, dateKey);
+        html += `<td class="rs-slot empty" ${clickable ? `data-create-space="${space}" data-create-slot="${slot}"` : `title="${blockedByPastDate ? '過去日期的排課只有老闆與史昕銓可以新增' : '只有管理員可以編輯行政時段'}"`}></td>`;
         continue;
       }
       const display = `${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}`;
@@ -1041,7 +1052,10 @@ function buildModal(mode, booking, space, slot, dateKey) {
   </form></div>`;
 }
 function openCreateModal(space, slot, dateKey, triggerElement = null) {
-  if (!canCreateAt(space)) { showToast('⚠️ 行政時段只有管理員可以編輯'); return; }
+  if (!canCreateAt(space, dateKey)) {
+    showToast(createDeniedByPastDate(space, dateKey) ? '⚠️ 過去日期的排課只有老闆與史昕銓可以新增。' : '⚠️ 行政時段只有管理員可以編輯');
+    return;
+  }
   lastModalTrigger = triggerElement || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
   modalState = { mode: 'create', space, slot, dateKey };
   mountModal();
@@ -1164,6 +1178,10 @@ function validateBooking(values, state, existingIds = []) {
 async function submitBooking() {
   const state = modalState;
   if (!state || mutationInProgress) return;
+  if (state.mode === 'create' && !canCreateAt(state.space, state.dateKey)) {
+    showToast('⚠️ 過去日期的排課只有老闆與史昕銓可以新增。');
+    return;
+  }
   const values = readModalValues();
   const oldGroup = state.mode === 'edit' ? state.booking.groupId : null;
   const oldRecords = state.mode === 'edit' ? (state.originalRecords || [state.booking]) : [];
