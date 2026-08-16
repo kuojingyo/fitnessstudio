@@ -497,7 +497,7 @@ function renderLogin(root) {
       return;
     }
     currentUser = USERS[user];
-    localStorage.setItem(SESSION_KEY, user);
+    sessionStorage.setItem(SESSION_KEY, user);
     currentView = 'month';
     currentDate = new Date();
     startIdleTimeout();
@@ -563,7 +563,7 @@ function disposeIdleTimeout() {
 function logout(reason) {
   disposeIdleTimeout();
   currentUser = null;
-  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
   modalState = null;
   adminBookingClipboard = null;
   closeAdminContextMenu();
@@ -1256,7 +1256,8 @@ async function deleteCurrentBooking() {
   }
 }
 function boot() {
-  const saved = localStorage.getItem(SESSION_KEY);
+  localStorage.removeItem(SESSION_KEY);
+  const saved = sessionStorage.getItem(SESSION_KEY);
   if (saved && USERS[saved]) currentUser = USERS[saved];
   renderRoot();
   if (currentUser) {
