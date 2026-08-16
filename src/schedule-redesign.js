@@ -12,6 +12,7 @@ import {
   bookingSpaceNumber,
   bookingDurationNumber,
   bookingMutationErrorMessage,
+  canModifyPastBooking,
   buildAdminBookingPaste,
   buildDateBookingMutation,
   buildPublishDraftMutation,
@@ -165,7 +166,8 @@ function canEditBooking(booking) {
   if (!currentUser || !isDataReady()) return false;
   if (isAdmin()) return true;
   if (isAdminSpace(booking.space)) return false;
-  return booking.owner === currentUser.name || booking.owner === OTHER_OWNER;
+  if (booking.owner !== currentUser.name && booking.owner !== OTHER_OWNER) return false;
+  return canModifyPastBooking(currentUser.name, booking.date, fmtDate(new Date()));
 }
 function canDeleteBooking(booking) { return canEditBooking(booking); }
 function canUseKind(kind, space) { return kind !== 'team' || isTeamSpace(space); }

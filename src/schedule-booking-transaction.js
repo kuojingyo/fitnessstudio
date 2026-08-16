@@ -201,6 +201,13 @@ export function bookingOwnerIdentity(booking) {
   return nickname ? `other:${nickname}` : '';
 }
 
+const PAST_BOOKING_EDITORS = new Set(['老闆', '史昕銓']);
+
+export function canModifyPastBooking(userName, dateKey, todayKey) {
+  if (PAST_BOOKING_EDITORS.has(userName)) return true;
+  return String(dateKey ?? '') >= String(todayKey ?? '');
+}
+
 function normalizedKind(booking) {
   return ['admin', 'coach', 'team'].includes(booking?.kind)
     ? booking.kind

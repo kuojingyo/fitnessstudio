@@ -1148,3 +1148,24 @@ test('transaction 拒絕可被 Number 強制轉成時長的畸形值', () => {
     });
   }
 });
+
+test('過去日期排課僅老闆與史昕銓可修改，教練限當日及未來', () => {
+  const today = '2026-08-17';
+  const yesterday = '2026-08-16';
+  const tomorrow = '2026-08-18';
+
+  for (const name of ['老闆', '史昕銓']) {
+    assert.equal(bookingTransactionModule.canModifyPastBooking(name, yesterday, today), true, `${name} 可改過去`);
+    assert.equal(bookingTransactionModule.canModifyPastBooking(name, today, today), true, `${name} 可改今天`);
+    assert.equal(bookingTransactionModule.canModifyPastBooking(name, tomorrow, today), true, `${name} 可改未來`);
+  }
+
+  for (const name of ['高芷妍', '潘閱滔']) {
+    assert.equal(bookingTransactionModule.canModifyPastBooking(name, yesterday, today), false, `${name} 不可改過去`);
+    assert.equal(bookingTransactionModule.canModifyPastBooking(name, today, today), true, `${name} 可改今天`);
+    assert.equal(bookingTransactionModule.canModifyPastBooking(name, tomorrow, today), true, `${name} 可改未來`);
+  }
+
+  assert.equal(bookingTransactionModule.canModifyPastBooking('未知使用者', yesterday, today), false);
+  assert.equal(bookingTransactionModule.canModifyPastBooking('未知使用者', tomorrow, today), true);
+});
