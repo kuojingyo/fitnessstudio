@@ -486,6 +486,7 @@ test('一般修改 CAS 快照忽略日期節點推導值與未知欄位', () => 
     nickname: undefined,
     remark: '原備註',
     groupId: undefined,
+    draft: undefined,
     createdAt: 123,
   });
 });

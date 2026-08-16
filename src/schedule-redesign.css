@@ -240,6 +240,7 @@
   .rs-mobile-view-toggle.rs-nav-btn,
   .rs-mobile-view-toggle.rs-nav-btn.active { display:block; width:100%; min-height:42px; font-size:.9rem; background:var(--rs-sage-light); border-color:var(--rs-sage); color:var(--rs-walnut); font-weight:700; }
   .rs-header-actions .rs-logout { display:block; min-height:42px; padding:.45rem .8rem; font-size:.9rem; white-space:nowrap; }
+  .rs-publish-btn { width:100%; min-height:42px; }
   .rs-main { width:100%; max-width:100%; padding:.75rem; overflow-x:clip; }
   .rs-toolbar { align-items:stretch; }
   .rs-toolbar-title { font-size:1.05rem; }
@@ -258,3 +259,29 @@
   .rs-admin-resize-handle span { width:72%; height:4px; }
   .rs-admin-resize-preview { font-size:.62rem; }
 }
+
+/* ── 預排班（草稿）── 條紋表示，僅老闆可見 ── */
+.rs-admin-card.draft {
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.24) 0 6px, rgba(255,255,255,0) 6px 12px);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.55), inset 0 0 0 2px rgba(28,20,17,.18);
+}
+.rs-day-item.draft {
+  background-color:#E9E9E3;
+  color:#5A5A52;
+  background-image: repeating-linear-gradient(45deg, rgba(90,90,82,.16) 0 5px, rgba(90,90,82,0) 5px 10px);
+}
+.rs-slot.booked.draft {
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.26) 0 7px, rgba(255,255,255,0) 7px 14px);
+}
+.rs-draft-btn {
+  border:1px dashed var(--rs-sage-dark); border-radius:9px; padding:.68rem 1rem; cursor:pointer; font:inherit; font-weight:700;
+  color:var(--rs-sage-dark); background:repeating-linear-gradient(45deg, rgba(139,157,131,.14) 0 6px, rgba(139,157,131,0) 6px 12px);
+  transition:.18s ease;
+}
+.rs-draft-btn:hover,.rs-draft-btn:focus-visible { background-color:var(--rs-sage-light); outline:2px solid rgba(139,157,131,.4); }
+.rs-publish-btn {
+  border:1px solid var(--rs-accent); border-radius:7px; padding:.45rem .7rem; cursor:pointer; font:inherit; font-size:.76rem; font-weight:700;
+  color:var(--rs-walnut); background:repeating-linear-gradient(45deg, rgba(201,123,74,.2) 0 6px, rgba(201,123,74,0) 6px 12px), var(--rs-oatmeal);
+  white-space:nowrap;
+}
+.rs-publish-btn:hover,.rs-publish-btn:focus-visible { background-color:#F7E8DD; outline:2px solid rgba(201,123,74,.4); }

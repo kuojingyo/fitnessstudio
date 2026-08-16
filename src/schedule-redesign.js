@@ -14,6 +14,7 @@ import {
   bookingMutationErrorMessage,
   buildAdminBookingPaste,
   buildDateBookingMutation,
+  buildPublishDraftMutation,
   commitDateBookingMutation,
   isSchedulableBookingOwner,
 } from './schedule-booking-transaction.js';
@@ -124,9 +125,11 @@ function normalizeBookings(value) {
         && TIME_PATTERN.test(time)
         && Number.isFinite(duration) && duration > 0 && duration % SLOT_MINUTES === 0
         && Number.isInteger(slot) && validateRange(slot, duration)
-        && (kind !== 'team' || isTeamSpace(space));
+        && (kind !== 'team' || isTeamSpace(space))
+        && (item.draft === undefined || (item.draft === true && space === 1 && kind === 'admin'));
       if (!valid) { ignoredCount++; continue; }
       const normalized = { ...item, id, date, space, owner, kind, time, duration };
+      if (item.draft === true) normalized.draft = true;
       if (item.nickname != null) normalized.nickname = String(item.nickname);
       if (item.remark != null) normalized.remark = String(item.remark);
       if (item.groupId != null) normalized.groupId = String(item.groupId);
@@ -137,7 +140,11 @@ function normalizeBookings(value) {
   if (ignoredCount) console.warn(`已忽略 ${ignoredCount} 筆格式不完整的排課資料。`);
   return result;
 }
-function bookingsForDate(dateKey) { return rawBookings[dateKey] || []; }
+function bookingsForDate(dateKey) {
+  const list = rawBookings[dateKey] || [];
+  return isBossManager() ? list : list.filter(booking => booking.draft !== true);
+}
+function rawBookingsForDate(dateKey) { return rawBookings[dateKey] || []; }
 function allBookingsForDate(dateKey) { return bookingsForDate(dateKey).filter(Boolean); }
 function uniqueTeamBookings(list) {
   const seen = new Set();
@@ -327,29 +334,22 @@ async function initDataLayer() {
     });
   }
 }
-async function persistChanges(dateKey, mutation) {
-  if (!isDataReady()) {
-    showToast('⚠️ 排課資料尚未同步完成，請稍後再試');
-    return false;
-  }
+async function persistMutationCore(dateKey, mutation) {
+  if (!isDataReady()) return { ok: false, reason: 'not-ready' };
   if (useFallback) {
-    const currentNode = Object.fromEntries(bookingsForDate(dateKey).map(booking => [booking.id, booking]));
+    const currentNode = Object.fromEntries(rawBookingsForDate(dateKey).map(booking => [booking.id, booking]));
     const result = applyDateBookingMutation(currentNode, mutation);
-    if (!result.ok) {
-      showToast(bookingMutationErrorMessage(result.reason));
-      return false;
-    }
+    if (!result.ok) return { ok: false, reason: result.reason };
     const nextBookings = { ...rawBookings };
     if (result.value) nextBookings[dateKey] = Object.values(result.value);
     else delete nextBookings[dateKey];
     try {
       localStorage.setItem(FALLBACK_KEY, JSON.stringify(nextBookings));
       rawBookings = nextBookings;
-      return true;
+      return { ok: true, reason: null };
     } catch (error) {
       console.error('本機排課資料儲存失敗：', error);
-      showToast('⚠️ 儲存失敗，請確認瀏覽器允許本機儲存');
-      return false;
+      return { ok: false, reason: 'storage-error' };
     }
   }
   try {
@@ -358,13 +358,62 @@ async function persistChanges(dateKey, mutation) {
       mutation,
       runTransaction: firebaseApi.runTransaction,
     });
-    if (result.committed) return true;
-    showToast(bookingMutationErrorMessage(result.reason));
-    return false;
+    return { ok: result.committed, reason: result.committed ? null : result.reason };
   } catch (error) {
     console.error('Firebase 寫入失敗：', error);
-    showToast('⚠️ 儲存失敗，請檢查網路後再試');
-    return false;
+    return { ok: false, reason: 'network-error' };
+  }
+}
+
+async function persistChanges(dateKey, mutation) {
+  const result = await persistMutationCore(dateKey, mutation);
+  if (result.ok) return true;
+  if (result.reason === 'not-ready') showToast('⚠️ 排課資料尚未同步完成，請稍後再試');
+  else if (result.reason === 'storage-error') showToast('⚠️ 儲存失敗，請確認瀏覽器允許本機儲存');
+  else if (result.reason === 'network-error') showToast('⚠️ 儲存失敗，請檢查網路後再試');
+  else showToast(bookingMutationErrorMessage(result.reason));
+  return false;
+}
+
+function draftBookings() {
+  return Object.values(rawBookings).flat().filter(booking => booking?.draft === true);
+}
+
+async function publishAllDrafts() {
+  if (!isBossManager() || mutationInProgress) return;
+  const drafts = draftBookings().sort((a, b) => (
+    String(a.date).localeCompare(String(b.date)) || String(a.time).localeCompare(String(b.time))
+  ));
+  if (!drafts.length) {
+    showToast('目前沒有預排班需要上線');
+    return;
+  }
+  if (!window.confirm(`將上線 ${drafts.length} 筆預排班，確定嗎？\n上線後所有使用者都會看到這些排課。`)) return;
+  mutationInProgress = true;
+  let published = 0;
+  const failures = [];
+  try {
+    for (const booking of drafts) {
+      const mutation = buildPublishDraftMutation(booking);
+      if (!mutation) {
+        failures.push({ booking, reason: 'invalid-mutation' });
+        continue;
+      }
+      const result = await persistMutationCore(booking.date, mutation);
+      if (result.ok) published++;
+      else failures.push({ booking, reason: result.reason });
+    }
+  } finally {
+    mutationInProgress = false;
+    renderRoot();
+    renderCurrentView();
+  }
+  if (failures.length) {
+    console.warn('預排上線失敗明細：', failures.map(f => ({ date: f.booking.date, time: f.booking.time, owner: ownerLabel(f.booking), reason: f.reason })));
+    const preview = failures.slice(0, 2).map(f => `${f.booking.date} ${f.booking.time} ${ownerLabel(f.booking)}`).join('、');
+    showToast(`📤 已上線 ${published} 筆；${failures.length} 筆未上線：${preview}${failures.length > 2 ? ' 等' : ''}`);
+  } else {
+    showToast(`📤 已將 ${published} 筆預排班全部上線`);
   }
 }
 async function persistAdminResize(dateKey, patch) {
@@ -373,7 +422,7 @@ async function persistAdminResize(dateKey, patch) {
     return false;
   }
   if (useFallback) {
-    const currentNode = Object.fromEntries(bookingsForDate(dateKey).map(booking => [booking.id, booking]));
+    const currentNode = Object.fromEntries(rawBookingsForDate(dateKey).map(booking => [booking.id, booking]));
     const result = applyDateBookingMutation(currentNode, { patches: [patch] });
     if (!result.ok) {
       showToast(bookingMutationErrorMessage(result.reason));
@@ -453,6 +502,7 @@ function renderShell(root) {
         <button type="button" class="rs-mobile-view-toggle rs-nav-btn active" id="rs-mobile-view-toggle">${currentView === 'month' ? '查看當日預約' : (isBossManager() ? '返回教練月檢視' : '返回月檢視')}</button>
         <button type="button" class="rs-nav-btn rs-desktop-only ${currentView === 'month' ? 'active' : ''}" id="rs-month-btn" aria-pressed="${currentView === 'month'}">${isBossManager() ? '教練月檢視' : '我的月檢視'}</button>
         <button type="button" class="rs-nav-btn rs-desktop-only ${currentView === 'day' ? 'active' : ''}" id="rs-day-btn" aria-pressed="${currentView === 'day'}">全館日檢視</button>
+        ${isBossManager() && draftBookings().length > 0 ? `<button type="button" class="rs-publish-btn" id="rs-publish-drafts" title="將所有預排班轉為正式排課，供全體使用者查看">📤 所有預排上線（${draftBookings().length}）</button>` : ''}
         <button type="button" class="rs-logout" id="rs-logout">登出</button>
       </div>
     </header>
@@ -468,6 +518,12 @@ function renderShell(root) {
   });
   $('#rs-month-btn').addEventListener('click', () => { currentView = 'month'; renderRoot(); renderCurrentView(); });
   $('#rs-day-btn').addEventListener('click', () => { currentView = 'day'; selectedDateKey = null; renderRoot(); renderCurrentView(); });
+  $('#rs-publish-drafts')?.addEventListener('click', () => {
+    publishAllDrafts().catch(error => {
+      console.error('預排上線失敗：', error);
+      showToast('⚠️ 預排上線失敗，請稍後再試');
+    });
+  });
   $('#rs-logout').addEventListener('click', logout);
 }
 const IDLE_EVENT_TYPES = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'];
@@ -561,7 +617,7 @@ function monthDayHtml(date, other) {
   if (isToday(date)) classes.push('today');
   if (selectedDateKey === key) classes.push('selected');
   const items = other ? [] : monthBookingsForUser(key);
-  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}" data-booking-id="${escapeHtml(b.id)}"><strong>${isBossManager() ? `${escapeHtml(ownerLabel(b))}｜` : ''}${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
+  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${isBossManager() ? `${escapeHtml(ownerLabel(b))}｜` : ''}${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
   return `<div class="${classes.join(' ')}" data-date="${key}"><div class="rs-day-number">${date.getDate()}</div>${content}</div>`;
 }
 function statsForOwner(owner, year, month) {
@@ -571,6 +627,7 @@ function statsForOwner(owner, year, month) {
   for (let day = 1; day <= last; day++) {
     const key = `${year}-${pad(month + 1)}-${pad(day)}`;
     for (const booking of bookingsForDate(key)) {
+      if (booking.draft === true) continue;
       if (booking.owner !== owner) continue;
       if (isAdminSpace(booking.space)) adminMinutes += Number(booking.duration) || 0;
       else if (booking.kind === 'team') {
@@ -640,7 +697,7 @@ function renderAdminTimeline(dayBookings) {
       const endResize = canResize && !segment.continuesAfter
         ? `<button type="button" class="rs-admin-resize-handle end" data-resize-booking-id="${escapeHtml(segment.id)}" data-resize-edge="end" role="slider" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="${SLOTS_PER_DAY}" aria-valuenow="${timeToSlot(segment.time) + durationToSlots(segment.duration)}" aria-valuetext="${escapeHtml(bookingEnd)}" aria-label="調整 ${escapeHtml(ownerLabel(segment))} 行政結束時間，目前 ${escapeHtml(bookingEnd)}。拖曳，或使用上下方向鍵預覽、Enter 確認、Escape 取消" title="拖曳調整結束時間"><span aria-hidden="true"></span></button>`
         : '';
-      return `<div class="rs-admin-card-wrap"><button type="button" class="rs-admin-card${ownerClass ? ` ${ownerClass}` : ''}${continuation}" data-booking-id="${escapeHtml(segment.id)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"><span class="rs-admin-name">${escapeHtml(ownerLabel(segment))}</span><span class="rs-admin-time"><span>${escapeHtml(segment.time)}</span><span class="rs-admin-time-sep">–</span><span>${escapeHtml(bookingEnd)}</span></span>${remark}</button>${startResize}${endResize}</div>`;
+      return `<div class="rs-admin-card-wrap"><button type="button" class="rs-admin-card${ownerClass ? ` ${ownerClass}` : ''}${segment.draft === true ? ' draft' : ''}${continuation}" data-booking-id="${escapeHtml(segment.id)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"><span class="rs-admin-name">${escapeHtml(ownerLabel(segment))}</span><span class="rs-admin-time"><span>${escapeHtml(segment.time)}</span><span class="rs-admin-time-sep">–</span><span>${escapeHtml(bookingEnd)}</span></span>${remark}</button>${startResize}${endResize}</div>`;
     }).join('');
     return `<div class="rs-admin-band count-${band.count} ${densityClass}${reserveRail ? ' can-add' : ''}" style="top:${top}%;height:${height}%;grid-template-columns:repeat(${band.count},minmax(0,1fr))">${cards}</div>`;
   }).join('');
@@ -968,16 +1025,17 @@ function buildModal(mode, booking, space, slot, dateKey) {
     : `<option value="coach" ${kind === 'coach' ? 'selected' : ''}>一般教練課</option>${canChangeKind ? `<option value="team" ${kind === 'team' ? 'selected' : ''}>團課</option>` : ''}`;
   const title = editing ? '修改／取消排課' : '新增排課';
   const info = editing ? `${spaceName(booking.space)} · ${booking.time}–${endTime(booking.time, booking.duration)} · ${ownerLabel(booking)}${booking.kind === 'team' ? '（團課）' : ''}` : `${spaceName(space)} · ${slotToTime(slot)} · ${formatDateCN(parseDate(dateKey))}`;
+  const showDraftButton = !editing && isBossManager() && isAdminSpace(space);
   return `<div class="rs-modal-overlay" id="rs-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rs-modal-title"><form class="rs-modal" id="rs-booking-form">
     <button type="button" class="rs-modal-close" id="rs-modal-close" aria-label="關閉排課視窗">✕</button><h2 id="rs-modal-title">${title}</h2><div class="rs-modal-sub">${escapeHtml(info)}</div>
-    ${editing ? `<div class="rs-info-box">📅 ${formatDateCN(parseDate(dateKey))}<br>🏠 ${spaceName(booking.space)}<br>👤 ${escapeHtml(ownerLabel(booking))}</div>` : ''}
+    ${editing ? `<div class="rs-info-box">📅 ${formatDateCN(parseDate(dateKey))}<br>🏠 ${spaceName(booking.space)}<br>👤 ${escapeHtml(ownerLabel(booking))}${booking.draft === true ? '<br>📝 預排班（未上線）' : ''}</div>` : ''}
     <label for="rs-owner">使用者</label><select id="rs-owner">${owners.map(item => `<option value="${escapeHtml(item)}" ${item === owner ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}</select>
     <div id="rs-nickname-row" class="${owner === OTHER_OWNER ? '' : 'rs-hidden'}"><label for="rs-nickname">其他暱稱</label><input id="rs-nickname" value="${escapeHtml(editing ? (booking.nickname || '') : '')}" placeholder="例如：小明"></div>
     <label for="rs-kind">課程類型</label><select id="rs-kind" ${canChangeKind ? '' : 'disabled'}>${kindOptions}</select>
     <div id="rs-team-note" class="rs-permission-note ${kind === 'team' ? '' : 'rs-hidden'}">團課會同時佔用二樓自由重量(1)、二樓自由重量(2)、二樓機動空間。</div>
     <label for="rs-duration">課程時長</label><select id="rs-duration">${durations.map(item => `<option value="${item}" ${item === duration ? 'selected' : ''}>${isAdminSpace(space) ? `${item / 60} 小時` : `${item} 分鐘`}</option>`).join('')}</select>
     <label for="rs-remark">📝 備註</label><input id="rs-remark" value="${escapeHtml(editing ? (booking.remark || '') : '')}" placeholder="選填，例如：體驗課、調整姿勢">
-    <div class="rs-modal-actions"><button type="button" class="rs-secondary" id="rs-modal-cancel">關閉</button>${editing && canDeleteBooking(booking) ? '<button type="button" class="rs-danger-btn" id="rs-delete">取消排課</button>' : ''}<button type="submit" class="rs-primary">${editing ? '確認修改' : '確認預約'}</button></div>
+    <div class="rs-modal-actions"><button type="button" class="rs-secondary" id="rs-modal-cancel">關閉</button>${editing && canDeleteBooking(booking) ? '<button type="button" class="rs-danger-btn" id="rs-delete">取消排課</button>' : ''}${showDraftButton ? '<button type="button" class="rs-draft-btn" id="rs-draft-submit">📝 預排班</button>' : ''}<button type="submit" class="rs-primary">${editing ? '確認修改' : '確認預約'}</button></div>
   </form></div>`;
 }
 function openCreateModal(space, slot, dateKey, triggerElement = null) {
@@ -1021,6 +1079,11 @@ function mountModal() {
     try { await submitBooking(); }
     catch (error) { console.error('排課送出失敗：', error); showToast('⚠️ 排課送出失敗，請稍後再試'); }
   });
+  $('#rs-draft-submit')?.addEventListener('click', () => {
+    if (!modalState || mutationInProgress) return;
+    modalState.submitAsDraft = true;
+    form.requestSubmit();
+  });
   $('#rs-delete')?.addEventListener('click', async () => {
     try { await deleteCurrentBooking(); }
     catch (error) { console.error('取消排課失敗：', error); showToast('⚠️ 取消排課失敗，請稍後再試'); }
@@ -1059,8 +1122,9 @@ function closeModal() {
 function readModalValues() {
   return { owner: $('#rs-owner').value, nickname: $('#rs-nickname').value.trim(), kind: $('#rs-kind').value, duration: Number($('#rs-duration').value), remark: $('#rs-remark').value.trim() };
 }
-function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, remark, time, groupId }) {
+function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, remark, time, groupId, draft = false }) {
   const result = { id, date: dateKey, space: Number(space), owner, kind, duration: Number(duration), time, createdAt: Date.now() };
+  if (draft === true) result.draft = true;
   if (nickname) result.nickname = nickname;
   if (remark) result.remark = remark;
   if (groupId) result.groupId = groupId;
@@ -1104,12 +1168,14 @@ async function submitBooking() {
   const oldIds = oldRecords.map(b => b.id);
   const error = validateBooking(values, state, oldIds);
   if (error) { showToast(`⚠️ ${error}`); return; }
+  const submitAsDraft = state.submitAsDraft === true && isBossManager() && isAdminSpace(state.space);
+  const draft = state.mode === 'edit' ? state.booking.draft === true : submitAsDraft;
   const groupId = values.kind === 'team' ? (oldGroup || `team_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`) : null;
   const spaces = targetSpaces(values.kind, state.space);
   const records = spaces.map(space => makeBooking({
     id: state.mode === 'edit' && oldRecords.find(b => Number(b.space) === space) ? oldRecords.find(b => Number(b.space) === space).id : firebaseId(state.dateKey),
     dateKey: state.dateKey, space, owner: values.owner, nickname: values.owner === OTHER_OWNER ? values.nickname : '', kind: values.kind,
-    duration: values.duration, remark: values.remark, time: slotToTime(state.slot), groupId
+    duration: values.duration, remark: values.remark, time: slotToTime(state.slot), groupId, draft,
   }));
   const mutation = buildDateBookingMutation({
     mode: state.mode,
@@ -1122,7 +1188,8 @@ async function submitBooking() {
     const ok = await persistChanges(state.dateKey, mutation);
     if (!ok) return;
     closeModal();
-    showToast(state.mode === 'edit' ? '✅ 排課已修改' : '✅ 排課已建立');
+    showToast(state.mode === 'edit' ? '✅ 排課已修改' : (draft ? '📝 預排班已建立（僅老闆可見，尚未上線）' : '✅ 排課已建立'));
+    renderRoot();
     renderCurrentView();
   } finally {
     mutationInProgress = false;
@@ -1132,7 +1199,8 @@ async function deleteCurrentBooking() {
   const state = modalState;
   if (!state || state.mode !== 'edit' || mutationInProgress) return;
   const button = $('#rs-delete');
-  if (!button?.dataset.confirming) {
+  const skipConfirm = state.booking.draft === true;
+  if (!skipConfirm && !button?.dataset.confirming) {
     const confirmationToken = String(Date.now());
     button.dataset.confirming = confirmationToken;
     button.textContent = '再次確認';
@@ -1160,7 +1228,8 @@ async function deleteCurrentBooking() {
     const ok = await persistChanges(state.dateKey, mutation);
     if (!ok) return;
     closeModal();
-    showToast(groupId ? '🗑️ 團課已取消' : '🗑️ 排課已取消');
+    showToast(groupId ? '🗑️ 團課已取消' : (state.booking.draft === true ? '🗑️ 預排班已移除' : '🗑️ 排課已取消'));
+    renderRoot();
     renderCurrentView();
   } finally {
     mutationInProgress = false;

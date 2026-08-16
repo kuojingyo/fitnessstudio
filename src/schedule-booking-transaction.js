@@ -108,6 +108,12 @@ function hasValidAdminRange(booking) {
 }
 
 function hasValidBookingRange(booking) {
+  const draft = booking?.draft;
+  if (draft !== undefined && draft !== true) return false;
+  if (draft === true) {
+    if (bookingSpaceNumber(booking?.space) !== ADMIN_SPACE) return false;
+    if (normalizedKind(booking) !== 'admin') return false;
+  }
   const space = bookingSpaceNumber(booking?.space);
   if (!Number.isInteger(space) || space < ADMIN_SPACE || space > MAX_SPACE) return false;
   if (space === ADMIN_SPACE) return hasValidAdminRange(booking);
@@ -126,9 +132,10 @@ function hasConsistentBookingIds(dateNode) {
   ));
 }
 
-function exceedsAdminCapacity(dateNode) {
+function exceedsAdminCapacity(dateNode, { includeDrafts = true } = {}) {
   const events = new Map();
   Object.values(dateNode || {}).forEach(booking => {
+    if (!includeDrafts && booking?.draft === true) return;
     const range = adminBookingRange(booking);
     if (!range) return;
     events.set(range.start, (events.get(range.start) || 0) + 1);
@@ -164,6 +171,10 @@ function mergeBookingReplacement(currentBooking, replacement) {
   ['nickname', 'remark', 'groupId'].forEach(field => {
     if (!Object.hasOwn(replacement, field)) delete merged[field];
   });
+  if (Object.hasOwn(replacement, 'draft')) {
+    if (replacement.draft === true) merged.draft = true;
+    else delete merged.draft;
+  }
   return merged;
 }
 
@@ -223,8 +234,19 @@ export function bookingMutationExpectedValues(booking) {
     nickname: booking?.nickname,
     remark: booking?.remark,
     groupId: booking?.groupId,
+    draft: booking?.draft,
     createdAt: booking?.createdAt,
   };
+}
+
+export function buildPublishDraftMutation(booking) {
+  if (!booking || typeof booking !== 'object' || booking.draft !== true) return null;
+  if (bookingSpaceNumber(booking.space) !== ADMIN_SPACE || normalizedKind(booking) !== 'admin') return null;
+  return buildDateBookingMutation({
+    mode: 'edit',
+    originalRecords: [booking],
+    records: [{ ...booking, draft: null }],
+  });
 }
 
 export function buildDateBookingMutation({
@@ -300,6 +322,10 @@ export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Dat
   };
 }
 
+function draftBlindTo(booking, target) {
+  return booking?.draft === true && target?.draft !== true;
+}
+
 function ownerHasConflict(dateNode, targetKey) {
   const target = dateNode[targetKey];
   const targetOwnerIdentity = bookingOwnerIdentity(target);
@@ -307,7 +333,8 @@ function ownerHasConflict(dateNode, targetKey) {
   const targetRange = bookingRangeMinutes(target);
   if (!targetRange) return false;
   return Object.entries(dateNode).some(([key, booking]) => {
-    if (key === targetKey || !booking || bookingOwnerIdentity(booking) !== targetOwnerIdentity) return false;
+    if (key === targetKey || !booking || draftBlindTo(booking, target)) return false;
+    if (bookingOwnerIdentity(booking) !== targetOwnerIdentity) return false;
     const sameTeamGroup = normalizedKind(target) === 'team'
       && normalizedKind(booking) === 'team'
       && target.groupId
@@ -325,7 +352,8 @@ function spaceHasConflict(dateNode, targetKey) {
   const targetRange = bookingRangeMinutes(target);
   if (!targetRange) return false;
   return Object.entries(dateNode).some(([key, booking]) => {
-    if (key === targetKey || !booking || bookingSpaceNumber(booking.space) !== targetSpace) return false;
+    if (key === targetKey || !booking || draftBlindTo(booking, target)) return false;
+    if (bookingSpaceNumber(booking.space) !== targetSpace) return false;
     const range = bookingRangeMinutes(booking);
     return range ? targetRange.start < range.end && targetRange.end > range.start : false;
   });
@@ -485,14 +513,16 @@ export function applyDateBookingMutation(currentValue, mutation) {
     patchedKeys.push(key);
   }
 
-  const writesAdminBooking = [...additions, ...replacements, ...patchedKeys.map(key => next[key])]
-    .some(booking => bookingSpaceNumber(booking?.space) === ADMIN_SPACE);
-  const affectedAdminBookings = [...additions, ...replacements, ...patchedKeys.map(key => next[key])]
+  const affectedKeys = [...new Set([...writtenKeys, ...patchedKeys])];
+  const affectedAdminBookings = affectedKeys
+    .map(key => next[key])
     .filter(booking => bookingSpaceNumber(booking?.space) === ADMIN_SPACE);
   if (affectedAdminBookings.some(booking => !hasValidAdminRange(booking))) {
     return { ok: false, value: currentValue ?? null, reason: 'admin-range' };
   }
-  if (writesAdminBooking && exceedsAdminCapacity(next)) {
+  if (affectedAdminBookings.length > 0 && exceedsAdminCapacity(next, {
+    includeDrafts: affectedAdminBookings.some(booking => booking?.draft === true),
+  })) {
     return { ok: false, value: currentValue ?? null, reason: 'admin-capacity' };
   }
   const hasWrites = additions.length > 0 || replacements.length > 0 || patches.length > 0;
@@ -503,7 +533,6 @@ export function applyDateBookingMutation(currentValue, mutation) {
   if (!hasValidTeamGroups(next)) {
     return { ok: false, value: currentValue ?? null, reason: 'invalid-group' };
   }
-  const affectedKeys = [...new Set([...writtenKeys, ...patchedKeys])];
   if (affectedKeys.some(key => spaceHasConflict(next, key))) {
     return { ok: false, value: currentValue ?? null, reason: 'space-conflict' };
   }
