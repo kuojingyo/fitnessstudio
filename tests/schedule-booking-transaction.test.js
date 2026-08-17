@@ -1216,14 +1216,41 @@ test('同教練兩筆行政時段重疊時 transaction 仍阻擋', () => {
   assert.deepEqual(result, { ok: false, value: current, reason: 'owner-conflict' });
 });
 
-test('isAdminCoachOverlapPair 只認定一般課與行政時段組合', () => {
-  assert.equal(bookingTransactionModule.isAdminCoachOverlapPair('admin', 'coach'), true);
-  assert.equal(bookingTransactionModule.isAdminCoachOverlapPair('coach', 'admin'), true);
-  assert.equal(bookingTransactionModule.isAdminCoachOverlapPair('coach', 'coach'), false);
-  assert.equal(bookingTransactionModule.isAdminCoachOverlapPair('admin', 'admin'), false);
-  assert.equal(bookingTransactionModule.isAdminCoachOverlapPair('admin', 'team'), false);
-  assert.equal(bookingTransactionModule.isAdminCoachOverlapPair('team', 'coach'), false);
-  assert.equal(bookingTransactionModule.isAdminCoachOverlapPair('team', 'team'), false);
+test('isAdminTeachingOverlapPair 認定行政時段與一般課或團課組合', () => {
+  assert.equal(bookingTransactionModule.isAdminTeachingOverlapPair('admin', 'coach'), true);
+  assert.equal(bookingTransactionModule.isAdminTeachingOverlapPair('coach', 'admin'), true);
+  assert.equal(bookingTransactionModule.isAdminTeachingOverlapPair('admin', 'team'), true);
+  assert.equal(bookingTransactionModule.isAdminTeachingOverlapPair('team', 'admin'), true);
+  assert.equal(bookingTransactionModule.isAdminTeachingOverlapPair('coach', 'coach'), false);
+  assert.equal(bookingTransactionModule.isAdminTeachingOverlapPair('admin', 'admin'), false);
+  assert.equal(bookingTransactionModule.isAdminTeachingOverlapPair('team', 'coach'), false);
+  assert.equal(bookingTransactionModule.isAdminTeachingOverlapPair('coach', 'team'), false);
+  assert.equal(bookingTransactionModule.isAdminTeachingOverlapPair('team', 'team'), false);
+});
+
+test('同教練的團課與行政時段重疊時 transaction 放行', () => {
+  const current = {
+    admin: { ...adminBooking('admin', '10:00', 60), owner: '潘閱滔' },
+  };
+  const mutation = buildDateBookingMutation({
+    mode: 'create',
+    records: teamBookings('team-overlap-admin', [7, 8, 9], { owner: '潘閱滔', time: '10:30', duration: 60, date: '2026-08-15' }),
+  });
+  const result = applyDateBookingMutation(current, mutation);
+  assert.equal(result.ok, true, '團課與行政時段重疊應允許');
+});
+
+test('同教練的行政時段與團課重疊時 transaction 放行（反向）', () => {
+  const current = Object.fromEntries(
+    teamBookings('team-existing', [7, 8, 9], { owner: '高芷妍', time: '14:00', duration: 60, date: '2026-08-15' })
+      .map(booking => [booking.id, booking]),
+  );
+  const mutation = buildDateBookingMutation({
+    mode: 'create',
+    records: [{ id: 'admin-new', date: '2026-08-15', space: 1, owner: '高芷妍', kind: 'admin', time: '14:00', duration: 60, createdAt: 2 }],
+  });
+  const result = applyDateBookingMutation(current, mutation);
+  assert.equal(result.ok, true, '行政時段與團課重疊應允許');
 });
 
 test('bookingKindForOverlap 對缺 kind 的舊行政資料推斷為 admin', () => {

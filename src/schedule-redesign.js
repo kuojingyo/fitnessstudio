@@ -17,7 +17,7 @@ import {
   buildDateBookingMutation,
   buildPublishDraftMutation,
   commitDateBookingMutation,
-  isAdminCoachOverlapPair,
+  isAdminTeachingOverlapPair,
   bookingKindForOverlap,
   isSchedulableBookingOwner,
 } from './schedule-booking-transaction.js';
@@ -206,7 +206,7 @@ function conflictingOwner(list, time, duration, excludeIds = [], owner, nickname
   return list.find(b => {
     if (!b || excludeIds.includes(b.id)) return false;
     if (bookingOwnerIdentity(b) !== ownerIdentity) return false;
-    if (isAdminCoachOverlapPair(bookingKindForOverlap({ kind }), bookingKindForOverlap(b))) return false;
+    if (isAdminTeachingOverlapPair(bookingKindForOverlap({ kind }), bookingKindForOverlap(b))) return false;
     return overlaps(time, duration, b.time, b.duration);
   }) || null;
 }
@@ -468,7 +468,7 @@ async function notifyNewBookings(records, operator) {
   }
 }
 
-async function notifyAdminCoachOverlap(records, operator) {
+async function notifyTeachingAdminOverlap(records, operator) {
   const notified = new Set();
   for (const record of records) {
     const owner = record?.owner;
@@ -476,11 +476,11 @@ async function notifyAdminCoachOverlap(records, operator) {
     const candidateList = [...allBookingsForDate(record.date), ...records.filter(r => r.date === record.date)];
     const existing = candidateList.find(b => b && b.id !== record.id
       && bookingOwnerIdentity(b) === bookingOwnerIdentity(record)
-      && isAdminCoachOverlapPair(record.kind, b.kind)
+      && isAdminTeachingOverlapPair(bookingKindForOverlap(record), bookingKindForOverlap(b))
       && overlaps(record.time, record.duration, b.time, b.duration));
     if (!existing) continue;
     notified.add(owner);
-    const existingLabel = existing.kind === 'admin' ? '行政時段' : '一般教練課';
+    const existingLabel = existing.kind === 'admin' ? '行政時段' : (existing.kind === 'team' ? '團課' : '一般教練課');
     const remark = `與 ${existing.time}–${endTime(existing.time, existing.duration)} 的${existingLabel}重疊`;
     for (const to of ['老闆', '史昕銓']) {
       const message = buildInboxMessage({
@@ -563,7 +563,7 @@ async function publishAllDrafts() {
       if (result.ok) {
         published++;
         await notifyNewBookings([booking], '老闆');
-        await notifyAdminCoachOverlap([booking], '老闆');
+        await notifyTeachingAdminOverlap([booking], '老闆');
       } else {
         failures.push({ booking, reason: result.reason });
       }
@@ -1412,7 +1412,7 @@ async function submitBooking() {
     if (!ok) return;
     if (state.mode === 'create' && draft !== true) {
       await notifyNewBookings(records, currentUser.name);
-      await notifyAdminCoachOverlap(records, currentUser.name);
+      await notifyTeachingAdminOverlap(records, currentUser.name);
     }
     closeModal();
     renderRoot();

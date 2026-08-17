@@ -333,8 +333,9 @@ function draftBlindTo(booking, target) {
   return booking?.draft === true && target?.draft !== true;
 }
 
-export function isAdminCoachOverlapPair(kindA, kindB) {
-  return (kindA === 'admin' && kindB === 'coach') || (kindA === 'coach' && kindB === 'admin');
+export function isAdminTeachingOverlapPair(kindA, kindB) {
+  return (kindA === 'admin' && (kindB === 'coach' || kindB === 'team'))
+    || ((kindA === 'coach' || kindA === 'team') && kindB === 'admin');
 }
 
 export function bookingKindForOverlap(booking) {
@@ -350,7 +351,7 @@ function ownerHasConflict(dateNode, targetKey) {
   return Object.entries(dateNode).some(([key, booking]) => {
     if (key === targetKey || !booking || draftBlindTo(booking, target)) return false;
     if (bookingOwnerIdentity(booking) !== targetOwnerIdentity) return false;
-    if (isAdminCoachOverlapPair(normalizedKind(target), normalizedKind(booking))) return false;
+    if (isAdminTeachingOverlapPair(normalizedKind(target), normalizedKind(booking))) return false;
     const sameTeamGroup = normalizedKind(target) === 'team'
       && normalizedKind(booking) === 'team'
       && target.groupId
