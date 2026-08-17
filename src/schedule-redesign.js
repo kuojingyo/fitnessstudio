@@ -20,10 +20,13 @@ import {
   isSchedulableBookingOwner,
 } from './schedule-booking-transaction.js';
 import { createIdleTimeout, IDLE_TIMEOUT_MS } from './schedule-idle-timeout.js';
+import { buildInboxMessage, normalizeInbox, unreadCount, withAllRead, withMessageRead } from './schedule-inbox.js';
 
 const ROOT_PATH = 'scheduleV2Bookings';
 const FALLBACK_KEY = 'relife_schedule_v2_bookings';
 const SESSION_KEY = 'relife_schedule_user';
+const INBOX_ROOT = 'scheduleV2Inbox';
+const INBOX_FALLBACK_KEY = 'relife_schedule_v2_inbox';
 const PASSWORDS = { '老闆': '1564', '史昕銓': '1226', '高芷妍': 'kari812615', '潘閱滔': 'e3828736' };
 const USERS = {
   '老闆': { name: '老闆', role: 'admin' },
@@ -51,6 +54,7 @@ let useFallback = false;
 let dataStatus = 'loading';
 let dataErrorMessage = '';
 let rawBookings = {};
+let inboxByUser = {};
 let currentUser = null;
 let idleTimeout = null;
 let currentDate = new Date();
@@ -321,6 +325,8 @@ async function initDataLayer() {
   if (useFallback) {
     try { rawBookings = normalizeBookings(JSON.parse(localStorage.getItem(FALLBACK_KEY) || '{}')); }
     catch { rawBookings = {}; }
+    try { inboxByUser = normalizeInbox(JSON.parse(localStorage.getItem(INBOX_FALLBACK_KEY) || '{}')); }
+    catch { inboxByUser = {}; }
     dataStatus = 'ready';
     dataErrorMessage = '';
     window.addEventListener('storage', event => {
@@ -333,7 +339,17 @@ async function initDataLayer() {
           showToast('⚠️ 本機排課資料讀取失敗');
         }
       }
+      if (event.key === INBOX_FALLBACK_KEY) {
+        try {
+          inboxByUser = normalizeInbox(JSON.parse(event.newValue || '{}'));
+          updateInboxBadge();
+          renderCurrentView();
+        } catch (error) {
+          console.error('本機收件箱資料解析失敗：', error);
+        }
+      }
     });
+    renderRoot();
     renderCurrentView();
   } else {
     firebaseApi.onValue(firebaseApi.ref(db, ROOT_PATH), snapshot => {
@@ -344,8 +360,111 @@ async function initDataLayer() {
     }, error => {
       setDataError('⚠️ 雲端資料讀取失敗，請檢查網路後重新整理。', error);
     });
+    firebaseApi.onValue(firebaseApi.ref(db, INBOX_ROOT), snapshot => {
+      inboxByUser = normalizeInbox(snapshot.val() || {});
+      updateInboxBadge();
+      renderCurrentView();
+    }, error => {
+      console.error('收件箱讀取失敗：', error);
+    });
   }
 }
+async function persistInboxMessage(owner, message) {
+  if (!message) return false;
+  if (useFallback) {
+    const next = { ...inboxByUser, [owner]: { ...(inboxByUser[owner] || {}), [message.id]: message } };
+    try {
+      localStorage.setItem(INBOX_FALLBACK_KEY, JSON.stringify(next));
+      inboxByUser = next;
+      return true;
+    } catch (error) {
+      console.error('本機收件箱儲存失敗：', error);
+      return false;
+    }
+  }
+  try {
+    await firebaseApi.set(firebaseApi.ref(db, `${INBOX_ROOT}/${owner}/${message.id}`), message);
+    return true;
+  } catch (error) {
+    console.error('收件箱通知寫入失敗：', error);
+    return false;
+  }
+}
+
+async function markInboxRead(owner, messageId) {
+  if (!messageId) return;
+  if (useFallback) {
+    const userMessages = inboxByUser[owner];
+    if (!userMessages) return;
+    const nextMessages = withMessageRead(userMessages, messageId);
+    if (nextMessages === userMessages) return;
+    const next = { ...inboxByUser, [owner]: nextMessages };
+    try {
+      localStorage.setItem(INBOX_FALLBACK_KEY, JSON.stringify(next));
+      inboxByUser = next;
+      updateInboxBadge();
+      renderCurrentView();
+    } catch (error) {
+      console.error('本機收件箱已讀標記失敗：', error);
+    }
+    return;
+  }
+  try {
+    await firebaseApi.update(firebaseApi.ref(db, `${INBOX_ROOT}/${owner}/${messageId}`), { read: true });
+  } catch (error) {
+    console.error('收件箱已讀標記失敗：', error);
+    showToast('⚠️ 已讀標記失敗，請檢查網路');
+  }
+}
+
+async function markAllInboxRead() {
+  const userMessages = inboxByUser[currentUser?.name];
+  if (!userMessages) return;
+  if (useFallback) {
+    const nextMessages = withAllRead(userMessages);
+    if (nextMessages === userMessages) return;
+    const next = { ...inboxByUser, [currentUser.name]: nextMessages };
+    try {
+      localStorage.setItem(INBOX_FALLBACK_KEY, JSON.stringify(next));
+      inboxByUser = next;
+      updateInboxBadge();
+      renderCurrentView();
+    } catch (error) {
+      console.error('本機收件箱全部已讀標記失敗：', error);
+    }
+    return;
+  }
+  try {
+    await Promise.all(Object.keys(userMessages).map(id => (
+      firebaseApi.update(firebaseApi.ref(db, `${INBOX_ROOT}/${currentUser.name}/${id}`), { read: true })
+    )));
+  } catch (error) {
+    console.error('收件箱全部已讀標記失敗：', error);
+    showToast('⚠️ 已讀標記失敗，請檢查網路');
+  }
+}
+
+async function notifyNewBookings(records, operator) {
+  const notified = new Set();
+  for (const record of records) {
+    const owner = record?.owner;
+    if (!owner || owner === OTHER_OWNER || owner === operator || notified.has(owner)) continue;
+    notified.add(owner);
+    const message = buildInboxMessage({
+      id: useFallback ? newId() : firebaseApi.push(firebaseApi.ref(db, INBOX_ROOT)).key,
+      to: owner,
+      from: operator,
+      kind: record.kind,
+      date: record.date,
+      time: record.time,
+      duration: record.duration,
+      space: record.space,
+      createdAt: Date.now(),
+    });
+    await persistInboxMessage(owner, message);
+  }
+}
+
 async function persistMutationCore(dateKey, mutation) {
   if (!isDataReady()) return { ok: false, reason: 'not-ready' };
   if (useFallback) {
@@ -412,8 +531,12 @@ async function publishAllDrafts() {
         continue;
       }
       const result = await persistMutationCore(booking.date, mutation);
-      if (result.ok) published++;
-      else failures.push({ booking, reason: result.reason });
+      if (result.ok) {
+        published++;
+        await notifyNewBookings([booking], '老闆');
+      } else {
+        failures.push({ booking, reason: result.reason });
+      }
     }
   } finally {
     mutationInProgress = false;
@@ -511,9 +634,10 @@ function renderShell(root) {
       <div class="rs-header-brand">RELIFE Fitness · 排課系統${FORCE_LOCAL_DEMO ? '<span class="rs-demo-badge">本機測試資料</span>' : ''}</div>
       <div class="rs-header-user"><span>${escapeHtml(currentUser.name)}</span><span class="rs-role-pill">${currentUser.role === 'admin' ? '管理員' : '一般使用者'}</span></div>
       <div class="rs-header-actions">
-        <button type="button" class="rs-mobile-view-toggle rs-nav-btn active" id="rs-mobile-view-toggle">${currentView === 'month' ? '查看當日預約' : (isBossManager() ? '返回教練月檢視' : '返回月檢視')}</button>
+        <button type="button" class="rs-mobile-view-toggle rs-nav-btn active" id="rs-mobile-view-toggle">${currentView === 'month' ? '查看當日預約' : (currentView === 'inbox' ? '返回月檢視' : (isBossManager() ? '返回教練月檢視' : '返回月檢視'))}</button>
         <button type="button" class="rs-nav-btn rs-desktop-only ${currentView === 'month' ? 'active' : ''}" id="rs-month-btn" aria-pressed="${currentView === 'month'}">${isBossManager() ? '教練月檢視' : '我的月檢視'}</button>
         <button type="button" class="rs-nav-btn rs-desktop-only ${currentView === 'day' ? 'active' : ''}" id="rs-day-btn" aria-pressed="${currentView === 'day'}">全館日檢視</button>
+        <button type="button" class="rs-nav-btn ${currentView === 'inbox' ? 'active' : ''}" id="rs-inbox-btn" aria-pressed="${currentView === 'inbox'}">📥 收件箱${unreadCount(inboxByUser[currentUser.name]) > 0 ? `<span class="rs-inbox-badge">${unreadCount(inboxByUser[currentUser.name])}</span>` : ''}</button>
         ${isBossManager() && draftBookings().length > 0 ? `<button type="button" class="rs-publish-btn" id="rs-publish-drafts" title="將所有預排班轉為正式排課，供全體使用者查看">📤 所有預排上線（${draftBookings().length}）</button>` : ''}
         <button type="button" class="rs-logout" id="rs-logout">登出</button>
       </div>
@@ -530,6 +654,7 @@ function renderShell(root) {
   });
   $('#rs-month-btn').addEventListener('click', () => { currentView = 'month'; renderRoot(); renderCurrentView(); });
   $('#rs-day-btn').addEventListener('click', () => { currentView = 'day'; selectedDateKey = null; renderRoot(); renderCurrentView(); });
+  $('#rs-inbox-btn').addEventListener('click', () => { currentView = 'inbox'; selectedDateKey = null; renderRoot(); renderCurrentView(); });
   $('#rs-publish-drafts')?.addEventListener('click', () => {
     publishAllDrafts().catch(error => {
       console.error('預排上線失敗：', error);
@@ -537,6 +662,18 @@ function renderShell(root) {
     });
   });
   $('#rs-logout').addEventListener('click', logout);
+}
+function updateInboxBadge() {
+  const button = $('#rs-inbox-btn');
+  if (!button || !currentUser) return;
+  const count = unreadCount(inboxByUser[currentUser.name]);
+  const existing = button.querySelector('.rs-inbox-badge');
+  if (count > 0) {
+    if (existing) existing.textContent = String(count);
+    else button.insertAdjacentHTML('beforeend', `<span class="rs-inbox-badge">${count}</span>`);
+  } else {
+    existing?.remove();
+  }
 }
 const IDLE_EVENT_TYPES = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'];
 
@@ -580,10 +717,44 @@ function renderCurrentView() {
     main.innerHTML = `<div class="rs-permission-note" role="alert">${escapeHtml(dataErrorMessage)}</div>`;
     return;
   }
-  if (currentView === 'month') renderMonthView(main); else renderDayView(main);
+  if (currentView === 'inbox') renderInboxView(main);
+  else if (currentView === 'month') renderMonthView(main);
+  else renderDayView(main);
 }
 function renderToolbar(title, subtitle) {
   return `<div class="rs-toolbar"><div><div class="rs-toolbar-title">${title}</div><div class="rs-toolbar-sub">${subtitle}</div></div><div class="rs-date-nav"><button type="button" data-nav="-1">◀ 上一個</button><span class="rs-date-title">${currentView === 'month' ? `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月` : formatDateCN(currentDate)}</span><button type="button" data-nav="1">下一個 ▶</button><button type="button" data-today="1">今天</button></div></div>`;
+}
+
+function renderInboxView(main) {
+  const messages = Object.values(inboxByUser[currentUser.name] || {})
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const unread = unreadCount(inboxByUser[currentUser.name]);
+  let html = renderToolbar('📥 收件箱', '有人為你安排排課時，會在這裡通知你');
+  if (!messages.length) {
+    html += '<div class="rs-inbox-empty">📭 目前沒有訊息。當有人為你安排新的行政時段或教練課時，會顯示在這裡。</div>';
+  } else {
+    if (unread > 0) {
+      html += `<div class="rs-inbox-toolbar"><button type="button" class="rs-secondary" id="rs-inbox-read-all">✔ 全部標記已讀（${unread}）</button></div>`;
+    }
+    html += '<ul class="rs-inbox-list">' + messages.map(message => {
+      const label = message.kind === 'admin' ? '行政時段' : (message.kind === 'team' ? '團課' : '一般教練課');
+      const unreadMark = message.read !== true ? '<span class="rs-inbox-dot" aria-label="未讀"></span>' : '';
+      return `<li class="rs-inbox-item ${message.read !== true ? 'unread' : ''}" data-inbox-id="${escapeHtml(message.id)}" role="button" tabindex="0">
+        <div class="rs-inbox-line1">${unreadMark}<strong>${label}</strong> · ${spaceName(message.space)}</div>
+        <div class="rs-inbox-line2">📅 ${formatDateCN(parseDate(message.date))} ${message.time}–${endTime(message.time, message.duration)}</div>
+        <div class="rs-inbox-line3">由 ${escapeHtml(message.from)} 安排</div>
+      </li>`;
+    }).join('') + '</ul>';
+  }
+  main.innerHTML = html;
+  $('#rs-inbox-read-all')?.addEventListener('click', () => {
+    markAllInboxRead().catch(error => console.error('全部已讀失敗：', error));
+  });
+  $$('[data-inbox-id]', main).forEach(item => {
+    const mark = () => markInboxRead(currentUser.name, item.dataset.inboxId).catch(error => console.error('已讀標記失敗：', error));
+    item.addEventListener('click', mark);
+    item.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); mark(); } });
+  });
 }
 function attachDateNav(container) {
   $$('[data-nav]', container).forEach(button => button.addEventListener('click', () => {
@@ -1207,10 +1378,13 @@ async function submitBooking() {
   try {
     const ok = await persistChanges(state.dateKey, mutation);
     if (!ok) return;
+    if (state.mode === 'create' && draft !== true) {
+      await notifyNewBookings(records, currentUser.name);
+    }
     closeModal();
-    showToast(state.mode === 'edit' ? '✅ 排課已修改' : (draft ? '📝 預排班已建立（僅老闆可見，尚未上線）' : '✅ 排課已建立'));
     renderRoot();
     renderCurrentView();
+    showToast(state.mode === 'edit' ? '✅ 排課已修改' : (draft ? '📝 預排班已建立（僅老闆可見，尚未上線）' : '✅ 排課已建立'));
   } finally {
     mutationInProgress = false;
   }
