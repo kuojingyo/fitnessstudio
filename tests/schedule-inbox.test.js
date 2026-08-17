@@ -131,3 +131,19 @@ test('重疊通知訊息：overlap kind 與 remark 選填欄位', () => {
 
   assert.equal(buildInboxMessage({ ...validArgs, remark: 'x'.repeat(201) }), null, '超過 200 字元拒絕');
 });
+
+test('normalizeInbox 保留已讀狀態，不重置為未讀', () => {
+  const normalized = normalizeInbox({
+    '潘閱滔': {
+      a: { id: 'a', to: '潘閱滔', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '09:00', duration: 60, space: 2, read: true, createdAt: 1 },
+      b: { id: 'b', to: '潘閱滔', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '10:00', duration: 60, space: 2, read: false, createdAt: 2 },
+    },
+  });
+  assert.equal(normalized['潘閱滔']['a'].read, true, '已讀訊息載入後必須保持已讀');
+  assert.equal(normalized['潘閱滔']['b'].read, false, '未讀訊息維持未讀');
+});
+
+test('buildInboxMessage 接受 read 參數（預設 false）', () => {
+  assert.equal(buildInboxMessage({ ...validArgs, read: true }).read, true);
+  assert.equal(buildInboxMessage(validArgs).read, false);
+});

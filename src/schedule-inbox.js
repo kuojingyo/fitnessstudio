@@ -17,7 +17,7 @@ export function isSafeInboxId(value) {
 }
 
 export function buildInboxMessage({
-  id, to, from, kind, date, time, duration, space, remark, createdAt = Date.now(),
+  id, to, from, kind, date, time, duration, space, remark, read = false, createdAt = Date.now(),
 }) {
   if (!isSafeInboxId(id)) return null;
   if (typeof to !== 'string' || !to.trim()) return null;
@@ -30,7 +30,7 @@ export function buildInboxMessage({
   if (!Number.isInteger(createdAt)) return null;
   const message = {
     id: String(id), to, from, kind, date, time, duration, space,
-    read: false, createdAt,
+    read: read === true, createdAt,
   };
   if (typeof remark === 'string' && remark.trim()) {
     const trimmed = remark.trim();
