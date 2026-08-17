@@ -1535,6 +1535,7 @@ async function submitBooking() {
 async function deleteCurrentBooking() {
   const state = modalState;
   if (!state || state.mode !== 'edit' || mutationInProgress) return;
+  const scrollSnapshot = captureScheduleScroll();
   const button = $('#rs-delete');
   const skipConfirm = state.booking.draft === true;
   if (!skipConfirm && !button?.dataset.confirming) {
@@ -1565,9 +1566,10 @@ async function deleteCurrentBooking() {
     const ok = await persistChanges(state.dateKey, mutation);
     if (!ok) return;
     closeModal();
-    showToast(groupId ? '🗑️ 團課已取消' : (state.booking.draft === true ? '🗑️ 預排班已移除' : '🗑️ 排課已取消'));
     renderRoot();
     renderCurrentView();
+    restoreScheduleScroll(scrollSnapshot);
+    showToast(groupId ? '🗑️ 團課已取消' : (state.booking.draft === true ? '🗑️ 預排班已移除' : '🗑️ 排課已取消'));
   } finally {
     mutationInProgress = false;
   }
