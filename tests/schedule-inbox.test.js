@@ -114,3 +114,20 @@ test('normalizeInbox 過濾危險使用者鍵', () => {
   assert.deepEqual(Object.keys(normalized), ['潘閱滔']);
   assert.equal(Object.getPrototypeOf(normalized) === Object.prototype, true);
 });
+
+test('重疊通知訊息：overlap kind 與 remark 選填欄位', () => {
+  const message = buildInboxMessage({
+    ...validArgs, kind: 'overlap',
+    remark: '與 10:00–11:15 的一般教練課重疊',
+  });
+  assert.equal(message.kind, 'overlap');
+  assert.equal(message.remark, '與 10:00–11:15 的一般教練課重疊');
+
+  const withoutRemark = buildInboxMessage({ ...validArgs, kind: 'overlap' });
+  assert.equal('remark' in withoutRemark, false, '無 remark 時不寫入欄位');
+
+  const blankRemark = buildInboxMessage({ ...validArgs, kind: 'overlap', remark: '   ' });
+  assert.equal('remark' in blankRemark, false, '空白 remark 不寫入');
+
+  assert.equal(buildInboxMessage({ ...validArgs, remark: 'x'.repeat(201) }), null, '超過 200 字元拒絕');
+});

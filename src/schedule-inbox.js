@@ -1,4 +1,4 @@
-const INBOX_KINDS = new Set(['admin', 'coach', 'team']);
+const INBOX_KINDS = new Set(['admin', 'coach', 'team', 'overlap']);
 const DANGEROUS_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(\d{2}):(\d{2})$/;
@@ -17,7 +17,7 @@ export function isSafeInboxId(value) {
 }
 
 export function buildInboxMessage({
-  id, to, from, kind, date, time, duration, space, createdAt = Date.now(),
+  id, to, from, kind, date, time, duration, space, remark, createdAt = Date.now(),
 }) {
   if (!isSafeInboxId(id)) return null;
   if (typeof to !== 'string' || !to.trim()) return null;
@@ -28,10 +28,16 @@ export function buildInboxMessage({
   if (!Number.isInteger(duration) || duration <= 0) return null;
   if (!Number.isInteger(space) || space < 1 || space > 9) return null;
   if (!Number.isInteger(createdAt)) return null;
-  return {
+  const message = {
     id: String(id), to, from, kind, date, time, duration, space,
     read: false, createdAt,
   };
+  if (typeof remark === 'string' && remark.trim()) {
+    const trimmed = remark.trim();
+    if (trimmed.length > 200) return null;
+    message.remark = trimmed;
+  }
+  return message;
 }
 
 export function normalizeInbox(data) {

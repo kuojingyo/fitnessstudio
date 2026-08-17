@@ -333,6 +333,14 @@ function draftBlindTo(booking, target) {
   return booking?.draft === true && target?.draft !== true;
 }
 
+export function isAdminCoachOverlapPair(kindA, kindB) {
+  return (kindA === 'admin' && kindB === 'coach') || (kindA === 'coach' && kindB === 'admin');
+}
+
+export function bookingKindForOverlap(booking) {
+  return normalizedKind(booking);
+}
+
 function ownerHasConflict(dateNode, targetKey) {
   const target = dateNode[targetKey];
   const targetOwnerIdentity = bookingOwnerIdentity(target);
@@ -342,6 +350,7 @@ function ownerHasConflict(dateNode, targetKey) {
   return Object.entries(dateNode).some(([key, booking]) => {
     if (key === targetKey || !booking || draftBlindTo(booking, target)) return false;
     if (bookingOwnerIdentity(booking) !== targetOwnerIdentity) return false;
+    if (isAdminCoachOverlapPair(normalizedKind(target), normalizedKind(booking))) return false;
     const sameTeamGroup = normalizedKind(target) === 'team'
       && normalizedKind(booking) === 'team'
       && target.groupId

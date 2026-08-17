@@ -17,6 +17,8 @@ import {
   buildDateBookingMutation,
   buildPublishDraftMutation,
   commitDateBookingMutation,
+  isAdminCoachOverlapPair,
+  bookingKindForOverlap,
   isSchedulableBookingOwner,
 } from './schedule-booking-transaction.js';
 import { createIdleTimeout, IDLE_TIMEOUT_MS } from './schedule-idle-timeout.js';
@@ -198,12 +200,13 @@ function conflictingBooking(list, space, time, duration, excludeIds = [], owner,
     return overlaps(time, duration, b.time, b.duration);
   }) || null;
 }
-function conflictingOwner(list, time, duration, excludeIds = [], owner, nickname) {
+function conflictingOwner(list, time, duration, excludeIds = [], owner, nickname, kind) {
   const ownerIdentity = bookingOwnerIdentity({ owner, nickname });
   if (!ownerIdentity) return null;
   return list.find(b => {
     if (!b || excludeIds.includes(b.id)) return false;
     if (bookingOwnerIdentity(b) !== ownerIdentity) return false;
+    if (isAdminCoachOverlapPair(bookingKindForOverlap({ kind }), bookingKindForOverlap(b))) return false;
     return overlaps(time, duration, b.time, b.duration);
   }) || null;
 }
@@ -465,6 +468,32 @@ async function notifyNewBookings(records, operator) {
   }
 }
 
+async function notifyAdminCoachOverlap(records, operator) {
+  const notified = new Set();
+  for (const record of records) {
+    const owner = record?.owner;
+    if (!owner || owner === OTHER_OWNER || notified.has(owner)) continue;
+    const candidateList = [...allBookingsForDate(record.date), ...records.filter(r => r.date === record.date)];
+    const existing = candidateList.find(b => b && b.id !== record.id
+      && bookingOwnerIdentity(b) === bookingOwnerIdentity(record)
+      && isAdminCoachOverlapPair(record.kind, b.kind)
+      && overlaps(record.time, record.duration, b.time, b.duration));
+    if (!existing) continue;
+    notified.add(owner);
+    const existingLabel = existing.kind === 'admin' ? '行政時段' : '一般教練課';
+    const remark = `與 ${existing.time}–${endTime(existing.time, existing.duration)} 的${existingLabel}重疊`;
+    for (const to of ['老闆', '史昕銓']) {
+      const message = buildInboxMessage({
+        id: useFallback ? newId() : firebaseApi.push(firebaseApi.ref(db, INBOX_ROOT)).key,
+        to, from: operator, kind: 'overlap',
+        date: record.date, time: record.time, duration: record.duration, space: record.space,
+        remark, createdAt: Date.now(),
+      });
+      await persistInboxMessage(to, message);
+    }
+  }
+}
+
 async function persistMutationCore(dateKey, mutation) {
   if (!isDataReady()) return { ok: false, reason: 'not-ready' };
   if (useFallback) {
@@ -534,6 +563,7 @@ async function publishAllDrafts() {
       if (result.ok) {
         published++;
         await notifyNewBookings([booking], '老闆');
+        await notifyAdminCoachOverlap([booking], '老闆');
       } else {
         failures.push({ booking, reason: result.reason });
       }
@@ -737,12 +767,14 @@ function renderInboxView(main) {
       html += `<div class="rs-inbox-toolbar"><button type="button" class="rs-secondary" id="rs-inbox-read-all">✔ 全部標記已讀（${unread}）</button></div>`;
     }
     html += '<ul class="rs-inbox-list">' + messages.map(message => {
-      const label = message.kind === 'admin' ? '行政時段' : (message.kind === 'team' ? '團課' : '一般教練課');
+      const label = message.kind === 'admin' ? '行政時段'
+        : (message.kind === 'team' ? '團課'
+          : (message.kind === 'overlap' ? '⚠️ 排課重疊通知' : '一般教練課'));
       const unreadMark = message.read !== true ? '<span class="rs-inbox-dot" aria-label="未讀"></span>' : '';
       return `<li class="rs-inbox-item ${message.read !== true ? 'unread' : ''}" data-inbox-id="${escapeHtml(message.id)}" role="button" tabindex="0">
         <div class="rs-inbox-line1">${unreadMark}<strong>${label}</strong> · ${spaceName(message.space)}</div>
         <div class="rs-inbox-line2">📅 ${formatDateCN(parseDate(message.date))} ${message.time}–${endTime(message.time, message.duration)}</div>
-        <div class="rs-inbox-line3">由 ${escapeHtml(message.from)} 安排</div>
+        <div class="rs-inbox-line3">由 ${escapeHtml(message.from)} 安排${message.remark ? ` · ${escapeHtml(message.remark)}` : ''}</div>
       </li>`;
     }).join('') + '</ul>';
   }
@@ -1342,7 +1374,7 @@ function validateBooking(values, state, existingIds = []) {
     const conflict = conflictingBooking(list, target, slotToTime(state.slot), values.duration, existingIds, values.owner, values.kind);
     if (conflict) return `${spaceName(target)} 在此時段已有 ${ownerLabel(conflict)} 的排課。`;
   }
-  const ownerConflict = conflictingOwner(list, slotToTime(state.slot), values.duration, existingIds, values.owner, values.nickname);
+  const ownerConflict = conflictingOwner(list, slotToTime(state.slot), values.duration, existingIds, values.owner, values.nickname, values.kind);
   if (ownerConflict) return `${values.owner} 在此時段已有其他排課。`;
   return null;
 }
@@ -1380,6 +1412,7 @@ async function submitBooking() {
     if (!ok) return;
     if (state.mode === 'create' && draft !== true) {
       await notifyNewBookings(records, currentUser.name);
+      await notifyAdminCoachOverlap(records, currentUser.name);
     }
     closeModal();
     renderRoot();
