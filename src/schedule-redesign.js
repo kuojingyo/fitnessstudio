@@ -22,7 +22,10 @@ import {
   isSchedulableBookingOwner,
 } from './schedule-booking-transaction.js';
 import { createIdleTimeout, IDLE_TIMEOUT_MS } from './schedule-idle-timeout.js';
-import { buildInboxMessage, normalizeInbox, unreadCount, withAllRead, withMessageRead } from './schedule-inbox.js';
+import {
+  buildInboxMessage, normalizeInbox, unreadCount, withAllRead, withMessageRead,
+  withoutMessage, withoutReadMessages,
+} from './schedule-inbox.js';
 
 const ROOT_PATH = 'scheduleV2Bookings';
 const FALLBACK_KEY = 'relife_schedule_v2_bookings';
@@ -447,6 +450,62 @@ async function markAllInboxRead() {
   }
 }
 
+async function deleteInboxMessage(owner, messageId) {
+  if (!messageId) return;
+  if (useFallback) {
+    const userMessages = inboxByUser[owner];
+    if (!userMessages) return;
+    const nextMessages = withoutMessage(userMessages, messageId);
+    if (nextMessages === userMessages) return;
+    const next = { ...inboxByUser, [owner]: nextMessages };
+    try {
+      localStorage.setItem(INBOX_FALLBACK_KEY, JSON.stringify(next));
+      inboxByUser = next;
+      updateInboxBadge();
+      renderCurrentView();
+    } catch (error) {
+      console.error('本機收件箱刪除失敗：', error);
+      showToast('⚠️ 刪除訊息失敗，請稍後再試');
+    }
+    return;
+  }
+  try {
+    await firebaseApi.remove(firebaseApi.ref(db, `${INBOX_ROOT}/${owner}/${messageId}`));
+  } catch (error) {
+    console.error('收件箱刪除失敗：', error);
+    showToast('⚠️ 刪除訊息失敗，請檢查網路');
+  }
+}
+
+async function clearReadInboxMessages() {
+  const userMessages = inboxByUser[currentUser?.name];
+  if (!userMessages) return;
+  const readIds = Object.values(userMessages).filter(message => message?.read === true).map(message => message.id);
+  if (!readIds.length) return;
+  if (useFallback) {
+    const nextMessages = withoutReadMessages(userMessages);
+    const next = { ...inboxByUser, [currentUser.name]: nextMessages };
+    try {
+      localStorage.setItem(INBOX_FALLBACK_KEY, JSON.stringify(next));
+      inboxByUser = next;
+      updateInboxBadge();
+      renderCurrentView();
+    } catch (error) {
+      console.error('本機收件箱清除已讀失敗：', error);
+      showToast('⚠️ 清除失敗，請稍後再試');
+    }
+    return;
+  }
+  try {
+    await Promise.all(readIds.map(id => (
+      firebaseApi.remove(firebaseApi.ref(db, `${INBOX_ROOT}/${currentUser.name}/${id}`))
+    )));
+  } catch (error) {
+    console.error('收件箱清除已讀失敗：', error);
+    showToast('⚠️ 清除失敗，請檢查網路');
+  }
+}
+
 async function notifyNewBookings(records, operator) {
   const notified = new Set();
   for (const record of records) {
@@ -763,8 +822,16 @@ function renderInboxView(main) {
   if (!messages.length) {
     html += '<div class="rs-inbox-empty">📭 目前沒有訊息。當有人為你安排新的行政時段或教練課時，會顯示在這裡。</div>';
   } else {
+    const readCount = messages.filter(message => message.read === true).length;
+    let toolbar = '';
     if (unread > 0) {
-      html += `<div class="rs-inbox-toolbar"><button type="button" class="rs-secondary" id="rs-inbox-read-all">✔ 全部標記已讀（${unread}）</button></div>`;
+      toolbar += `<button type="button" class="rs-secondary" id="rs-inbox-read-all">✔ 全部標記已讀（${unread}）</button>`;
+    }
+    if (readCount > 0) {
+      toolbar += `<button type="button" class="rs-secondary rs-danger-text" id="rs-inbox-clear-read">🗑️ 清除所有已讀（${readCount}）</button>`;
+    }
+    if (toolbar) {
+      html += `<div class="rs-inbox-toolbar">${toolbar}</div>`;
     }
     html += '<ul class="rs-inbox-list">' + messages.map(message => {
       const label = message.kind === 'admin' ? '行政時段'
@@ -772,9 +839,12 @@ function renderInboxView(main) {
           : (message.kind === 'overlap' ? '⚠️ 排課重疊通知' : '一般教練課'));
       const unreadMark = message.read !== true ? '<span class="rs-inbox-dot" aria-label="未讀"></span>' : '';
       return `<li class="rs-inbox-item ${message.read !== true ? 'unread' : ''}" data-inbox-id="${escapeHtml(message.id)}" role="button" tabindex="0">
-        <div class="rs-inbox-line1">${unreadMark}<strong>${label}</strong> · ${spaceName(message.space)}</div>
-        <div class="rs-inbox-line2">📅 ${formatDateCN(parseDate(message.date))} ${message.time}–${endTime(message.time, message.duration)}</div>
-        <div class="rs-inbox-line3">由 ${escapeHtml(message.from)} 安排${message.remark ? ` · ${escapeHtml(message.remark)}` : ''}</div>
+        <div class="rs-inbox-body">
+          <div class="rs-inbox-line1">${unreadMark}<strong>${label}</strong> · ${spaceName(message.space)}</div>
+          <div class="rs-inbox-line2">📅 ${formatDateCN(parseDate(message.date))} ${message.time}–${endTime(message.time, message.duration)}</div>
+          <div class="rs-inbox-line3">由 ${escapeHtml(message.from)} 安排${message.remark ? ` · ${escapeHtml(message.remark)}` : ''}</div>
+        </div>
+        <button type="button" class="rs-inbox-delete" data-inbox-delete="${escapeHtml(message.id)}" aria-label="刪除這則訊息" title="刪除訊息">🗑️</button>
       </li>`;
     }).join('') + '</ul>';
   }
@@ -782,10 +852,22 @@ function renderInboxView(main) {
   $('#rs-inbox-read-all')?.addEventListener('click', () => {
     markAllInboxRead().catch(error => console.error('全部已讀失敗：', error));
   });
+  $('#rs-inbox-clear-read')?.addEventListener('click', () => {
+    clearReadInboxMessages().catch(error => console.error('清除已讀訊息失敗：', error));
+  });
   $$('[data-inbox-id]', main).forEach(item => {
     const mark = () => markInboxRead(currentUser.name, item.dataset.inboxId).catch(error => console.error('已讀標記失敗：', error));
     item.addEventListener('click', mark);
-    item.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); mark(); } });
+    item.addEventListener('keydown', event => {
+      if (event.target !== item) return;
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); mark(); }
+    });
+  });
+  $$('[data-inbox-delete]', main).forEach(button => {
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      deleteInboxMessage(currentUser.name, button.dataset.inboxDelete).catch(error => console.error('刪除訊息失敗：', error));
+    });
   });
 }
 function attachDateNav(container) {

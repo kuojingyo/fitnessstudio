@@ -87,3 +87,26 @@ export function withAllRead(messages) {
   }
   return Object.fromEntries(Object.entries(messages).map(([id, message]) => [id, { ...message, read: true }]));
 }
+
+export function withoutMessage(messages, id) {
+  const list = messages == null ? {} : messages;
+  if (Array.isArray(list)) {
+    if (!list.some(message => message?.id === id)) return list;
+    return list.filter(message => message?.id !== id);
+  }
+  if (!Object.hasOwn(list, id)) return list;
+  const next = { ...list };
+  delete next[id];
+  return next;
+}
+
+export function withoutReadMessages(messages) {
+  if (messages == null) return messages;
+  if (Array.isArray(messages)) {
+    if (!messages.some(message => message?.read === true)) return messages;
+    return messages.filter(message => message?.read !== true);
+  }
+  const entries = Object.entries(messages);
+  if (!entries.some(([, message]) => message?.read === true)) return messages;
+  return Object.fromEntries(entries.filter(([, message]) => message?.read !== true));
+}

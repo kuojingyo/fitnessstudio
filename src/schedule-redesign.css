@@ -303,7 +303,17 @@
   position:relative; margin-bottom:.55rem; padding:.7rem .9rem .7rem 1rem;
   border:1px solid var(--rs-border); border-radius:10px; background:var(--rs-white);
   cursor:pointer; font-size:.88rem; transition:background .15s;
+  display:flex; align-items:center; gap:.6rem;
 }
+.rs-inbox-body { flex:1; min-width:0; }
+.rs-inbox-delete {
+  flex:none; border:none; background:transparent; cursor:pointer;
+  font-size:1rem; padding:.3rem .4rem; border-radius:7px; opacity:.55; line-height:1;
+}
+.rs-inbox-delete:hover,.rs-inbox-delete:focus-visible { opacity:1; background:var(--rs-danger-light); outline:none; }
+.rs-danger-text { color:var(--rs-danger); border-color:var(--rs-danger); }
+.rs-danger-text:hover { background:var(--rs-danger-light); }
+.rs-inbox-toolbar { display:flex; gap:.5rem; margin:.7rem 0 .5rem; flex-wrap:wrap; }
 .rs-inbox-item:hover,.rs-inbox-item:focus-visible { background:var(--rs-sage-light); outline:none; }
 .rs-inbox-item.unread { border-left:4px solid var(--rs-danger); background:#FFF6F4; font-weight:600; }
 .rs-inbox-item .rs-inbox-line1 { display:flex; align-items:center; gap:.4rem; }

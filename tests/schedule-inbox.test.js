@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildInboxMessage, normalizeInbox, unreadCount, withAllRead, withMessageRead } from '../src/schedule-inbox.js';
+import { buildInboxMessage, normalizeInbox, unreadCount, withAllRead, withMessageRead, withoutMessage, withoutReadMessages } from '../src/schedule-inbox.js';
 
 const validArgs = {
   id: 'm1', to: '潘閱滔', from: '史昕銓', kind: 'admin',
@@ -146,4 +146,30 @@ test('normalizeInbox 保留已讀狀態，不重置為未讀', () => {
 test('buildInboxMessage 接受 read 參數（預設 false）', () => {
   assert.equal(buildInboxMessage({ ...validArgs, read: true }).read, true);
   assert.equal(buildInboxMessage(validArgs).read, false);
+});
+
+test('withoutMessage 刪除指定訊息且不修改原物件', () => {
+  const messages = { a: { id: 'a', read: false }, b: { id: 'b', read: true } };
+  const next = withoutMessage(messages, 'a');
+  assert.deepEqual(Object.keys(next), ['b']);
+  assert.deepEqual(Object.keys(messages), ['a', 'b'], '原物件不變');
+  assert.notEqual(next, messages);
+});
+
+test('withoutMessage 刪除不存在的訊息時原樣回傳', () => {
+  const messages = { a: { id: 'a', read: false } };
+  assert.equal(withoutMessage(messages, 'zzz'), messages);
+});
+
+test('withoutReadMessages 移除所有已讀並保留未讀', () => {
+  const messages = { a: { id: 'a', read: false }, b: { id: 'b', read: true }, c: { id: 'c', read: true } };
+  const next = withoutReadMessages(messages);
+  assert.deepEqual(Object.keys(next), ['a']);
+  assert.deepEqual(Object.keys(messages), ['a', 'b', 'c'], '原物件不變');
+  assert.notEqual(next, messages);
+});
+
+test('withoutReadMessages 全未讀時原樣回傳', () => {
+  const messages = { a: { id: 'a', read: false } };
+  assert.equal(withoutReadMessages(messages), messages);
 });
