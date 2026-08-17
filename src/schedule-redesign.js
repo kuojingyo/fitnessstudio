@@ -215,6 +215,32 @@ function conflictingOwner(list, time, duration, excludeIds = [], owner, nickname
 }
 function validateRange(slot, duration) { return slot >= 0 && slot + durationToSlots(duration) <= SLOTS_PER_DAY; }
 
+function captureScheduleScroll() {
+  const tableWrap = $('.rs-table-wrap');
+  return {
+    windowX: window.scrollX,
+    windowY: window.scrollY,
+    tableTop: tableWrap?.scrollTop ?? 0,
+    tableLeft: tableWrap?.scrollLeft ?? 0,
+  };
+}
+
+function restoreScheduleScroll(snapshot) {
+  if (!snapshot) return;
+  const restore = () => {
+    window.scrollTo(snapshot.windowX, snapshot.windowY);
+    const tableWrap = $('.rs-table-wrap');
+    if (tableWrap) {
+      tableWrap.scrollTop = snapshot.tableTop;
+      tableWrap.scrollLeft = snapshot.tableLeft;
+    }
+  };
+  requestAnimationFrame(() => {
+    restore();
+    requestAnimationFrame(restore);
+  });
+}
+
 function showToast(message) {
   const toast = $('#rs-toast');
   if (!toast) return;
@@ -1463,6 +1489,7 @@ function validateBooking(values, state, existingIds = []) {
 async function submitBooking() {
   const state = modalState;
   if (!state || mutationInProgress) return;
+  const scrollSnapshot = captureScheduleScroll();
   if (state.mode === 'create' && !canCreateAt(state.space, state.dateKey)) {
     showToast('⚠️ 過去日期的排課只有老闆與史昕銓可以新增。');
     return;
@@ -1499,6 +1526,7 @@ async function submitBooking() {
     closeModal();
     renderRoot();
     renderCurrentView();
+    restoreScheduleScroll(scrollSnapshot);
     showToast(state.mode === 'edit' ? '✅ 排課已修改' : (draft ? '📝 預排班已建立（僅老闆可見，尚未上線）' : '✅ 排課已建立'));
   } finally {
     mutationInProgress = false;
