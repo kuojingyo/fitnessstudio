@@ -27,7 +27,7 @@ const mutationFor = booking => ({
 
 test('草稿排課僅限行政時段，其他空間的草稿會被拒絕', () => {
   const booking = {
-    id: 'draft-coach', date: '2026-08-13', space: 2, owner: '潘閱滔',
+    id: 'draft-coach', date: '2026-08-13', space: 2, owner: '洪琇捷',
     kind: 'coach', time: '09:00', duration: 75, draft: true,
   };
 
@@ -88,7 +88,7 @@ test('草稿不佔用行政容量，正式排課可排入已滿 3 筆草稿的�
   const current = {
     draftA: adminBooking('draftA', '09:00', 60, { owner: '史昕銓', draft: true }),
     draftB: adminBooking('draftB', '09:00', 60, { owner: '高芷妍', draft: true }),
-    draftC: adminBooking('draftC', '09:00', 60, { owner: '潘閱滔', draft: true }),
+    draftC: adminBooking('draftC', '09:00', 60, { owner: '洪琇捷', draft: true }),
   };
   const live = adminBooking('live', '09:00', 60, { owner: '其他', nickname: '代班' });
 
@@ -101,7 +101,7 @@ test('草稿建立時會計算正式排課的行政容量', () => {
   const current = {
     liveA: adminBooking('liveA', '09:00', 60, { owner: '史昕銓' }),
     liveB: adminBooking('liveB', '09:00', 60, { owner: '高芷妍' }),
-    liveC: adminBooking('liveC', '09:00', 60, { owner: '潘閱滔' }),
+    liveC: adminBooking('liveC', '09:00', 60, { owner: '洪琇捷' }),
   };
   const draft = adminBooking('draft', '09:00', 60, { owner: '其他', nickname: '代班', draft: true });
 
@@ -178,7 +178,7 @@ test('草稿發佈後 capacity 只計算正式排課', () => {
   const current = {
     draftA: adminBooking('draftA', '09:00', 60, { owner: '史昕銓', draft: true }),
     liveA: adminBooking('liveA', '09:00', 60, { owner: '高芷妍' }),
-    liveB: adminBooking('liveB', '09:00', 60, { owner: '潘閱滔' }),
+    liveB: adminBooking('liveB', '09:00', 60, { owner: '洪琇捷' }),
     liveC: adminBooking('liveC', '09:00', 60, { owner: '其他', nickname: '甲' }),
   };
   const mutation = tx.buildPublishDraftMutation(current.draftA);
@@ -201,7 +201,7 @@ test('引擎層編輯草稿省略 draft 欄位仍受行政容量限制', () => {
   const current = {
     d: adminBooking('d', '09:00', 60, { owner: '史昕銓', draft: true }),
     liveA: adminBooking('liveA', '09:00', 60, { owner: '高芷妍' }),
-    liveB: adminBooking('liveB', '09:00', 60, { owner: '潘閱滔' }),
+    liveB: adminBooking('liveB', '09:00', 60, { owner: '洪琇捷' }),
     liveC: adminBooking('liveC', '09:00', 60, { owner: '其他', nickname: '甲' }),
   };
   const replacement = { ...current.d, remark: '改備註' };
@@ -220,7 +220,7 @@ test('引擎層編輯草稿省略 draft 欄位仍受行政容量限制', () => {
 
 test('發佈非行政草稿會被拒絕', () => {
   const coachDraft = {
-    id: 'cd', date: '2026-08-13', space: 2, owner: '潘閱滔',
+    id: 'cd', date: '2026-08-13', space: 2, owner: '洪琇捷',
     kind: 'coach', time: '09:00', duration: 75, draft: true,
   };
 

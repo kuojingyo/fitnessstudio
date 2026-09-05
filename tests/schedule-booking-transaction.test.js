@@ -147,7 +147,7 @@ test('拖曳行政時間只 patch 時間欄位並保留伺服器上的備註與�
   const current = {
     admin: {
       ...adminBooking('admin'),
-      owner: '潘閱滔',
+      owner: '洪琇捷',
       remark: '另一台裝置更新的備註',
       legacyField: 'keep-me',
     },
@@ -156,7 +156,7 @@ test('拖曳行政時間只 patch 時間欄位並保留伺服器上的備註與�
   const result = applyDateBookingMutation(current, {
     patches: [{
       id: 'admin',
-      expected: { time: '09:00', duration: 60, space: 1, owner: '潘閱滔', kind: 'admin' },
+      expected: { time: '09:00', duration: 60, space: 1, owner: '洪琇捷', kind: 'admin' },
       changes: { time: '09:15', duration: 75 },
     }],
   });
@@ -271,14 +271,14 @@ test('Firebase key 與 booking id 不一致時 resize 會因畸形日期節點�
 });
 
 test('拖曳延長行政時間後撞到同教練其他課程時 transaction 原子中止', () => {
-  const target = { ...adminBooking('target', '09:00', 60), owner: '潘閱滔' };
-  const other = { ...adminBooking('other', '10:00', 60), owner: '潘閱滔' };
+  const target = { ...adminBooking('target', '09:00', 60), owner: '洪琇捷' };
+  const other = { ...adminBooking('other', '10:00', 60), owner: '洪琇捷' };
   const current = { target, other };
 
   const result = applyDateBookingMutation(current, {
     patches: [{
       id: 'target',
-      expected: { time: '09:00', duration: 60, space: 1, owner: '潘閱滔', kind: 'admin' },
+      expected: { time: '09:00', duration: 60, space: 1, owner: '洪琇捷', kind: 'admin' },
       changes: { time: '09:00', duration: 90 },
     }],
   });
@@ -288,10 +288,10 @@ test('拖曳延長行政時間後撞到同教練其他課程時 transaction 原�
 
 test('Resize 先提交後，基於舊畫面的新增 transaction 仍會阻擋同教練重疊', () => {
   const current = {
-    coach: { id: 'coach', date: '2026-08-13', space: 2, owner: '潘閱滔', kind: 'coach', time: '09:00', duration: 90 },
+    coach: { id: 'coach', date: '2026-08-13', space: 2, owner: '洪琇捷', kind: 'coach', time: '09:00', duration: 90 },
   };
   const staleAddition = {
-    id: 'coach-new', date: '2026-08-13', space: 3, owner: '潘閱滔', kind: 'coach', time: '10:00', duration: 75,
+    id: 'coach-new', date: '2026-08-13', space: 3, owner: '洪琇捷', kind: 'coach', time: '10:00', duration: 75,
   };
 
   const result = applyDateBookingMutation(current, {
@@ -407,7 +407,7 @@ test('Firebase key 與內嵌 id 不一致時任何 mutation 都 fail-closed', ()
   };
 
   const writeResult = applyDateBookingMutation(current, {
-    additions: [{ ...adminBooking('new-booking', '11:00'), owner: '潘閱滔' }],
+    additions: [{ ...adminBooking('new-booking', '11:00'), owner: '洪琇捷' }],
   });
   assert.deepEqual(writeResult, { ok: false, value: current, reason: 'invalid-booking-data' });
 
@@ -590,7 +590,7 @@ test('新增排課 id 已存在時 transaction 中止，不能覆蓋遠端紀錄
   const current = { collision: remote };
 
   const result = applyDateBookingMutation(current, {
-    additions: [{ ...remote, owner: '潘閱滔', remark: '舊畫面資料' }],
+    additions: [{ ...remote, owner: '洪琇捷', remark: '舊畫面資料' }],
   });
 
   assert.deepEqual(result, {
@@ -982,7 +982,7 @@ test('目標日期含無效場地資料時行政貼上必須 fail closed', () =>
   });
   const current = {
     malformed: {
-      id: 'malformed', date: '2026-08-15', space: 99, owner: '潘閱滔',
+      id: 'malformed', date: '2026-08-15', space: 99, owner: '洪琇捷',
       kind: 'coach', time: '09:00', duration: 75,
     },
   };
@@ -1084,7 +1084,7 @@ test('transaction 拒絕可被 Number 強制轉成場地的畸形值', () => {
     const id = `malformed-space-${index}`;
     const current = {
       [id]: {
-        id, date: '2026-08-15', space, owner: '潘閱滔',
+        id, date: '2026-08-15', space, owner: '洪琇捷',
         kind: 'admin', time: '09:00', duration: 60,
       },
     };
@@ -1114,7 +1114,7 @@ test('transaction 拒絕可被 Number 強制轉成時長的畸形值', () => {
     const id = `malformed-coach-duration-${index}`;
     const current = {
       [id]: {
-        id, date: '2026-08-15', space: 2, owner: '潘閱滔',
+        id, date: '2026-08-15', space: 2, owner: '洪琇捷',
         kind: 'coach', time: '09:00', duration,
       },
     };
@@ -1132,7 +1132,7 @@ test('transaction 拒絕可被 Number 強制轉成時長的畸形值', () => {
     const id = `malformed-admin-duration-${index}`;
     const current = {
       [id]: {
-        id, date: '2026-08-15', space: 1, owner: '潘閱滔',
+        id, date: '2026-08-15', space: 1, owner: '洪琇捷',
         kind: 'admin', time: '09:00', duration,
       },
     };
@@ -1158,7 +1158,7 @@ test('過去日期排課僅老闆與史昕銓可修改，教練限當日及未�
     assert.equal(bookingTransactionModule.canModifyPastBooking(name, tomorrow, today), true, `${name} 可改未來`);
   }
 
-  for (const name of ['高芷妍', '潘閱滔']) {
+  for (const name of ['高芷妍', '洪琇捷']) {
     assert.equal(bookingTransactionModule.canModifyPastBooking(name, yesterday, today), false, `${name} 不可改過去`);
     assert.equal(bookingTransactionModule.canModifyPastBooking(name, today, today), true, `${name} 可改今天`);
     assert.equal(bookingTransactionModule.canModifyPastBooking(name, tomorrow, today), true, `${name} 可改未來`);
@@ -1170,11 +1170,11 @@ test('過去日期排課僅老闆與史昕銓可修改，教練限當日及未�
 
 test('同教練的一般課與行政時段重疊時 transaction 放行', () => {
   const current = {
-    coach: { id: 'coach', date: '2026-08-15', space: 2, owner: '潘閱滔', kind: 'coach', time: '10:00', duration: 75, createdAt: 1 },
+    coach: { id: 'coach', date: '2026-08-15', space: 2, owner: '洪琇捷', kind: 'coach', time: '10:00', duration: 75, createdAt: 1 },
   };
   const mutation = buildDateBookingMutation({
     mode: 'create',
-    records: [{ id: 'admin-new', date: '2026-08-15', space: 1, owner: '潘閱滔', kind: 'admin', time: '10:00', duration: 60, createdAt: 2 }],
+    records: [{ id: 'admin-new', date: '2026-08-15', space: 1, owner: '洪琇捷', kind: 'admin', time: '10:00', duration: 60, createdAt: 2 }],
   });
   const result = applyDateBookingMutation(current, mutation);
   assert.equal(result.ok, true, '一般課與行政時段重疊應允許');
@@ -1194,11 +1194,11 @@ test('同教練的行政時段與一般課重疊時 transaction 放行（反向�
 
 test('同教練兩筆一般課重疊時 transaction 仍阻擋', () => {
   const current = {
-    coach: { id: 'coach', date: '2026-08-15', space: 2, owner: '潘閱滔', kind: 'coach', time: '10:00', duration: 75, createdAt: 1 },
+    coach: { id: 'coach', date: '2026-08-15', space: 2, owner: '洪琇捷', kind: 'coach', time: '10:00', duration: 75, createdAt: 1 },
   };
   const mutation = buildDateBookingMutation({
     mode: 'create',
-    records: [{ id: 'coach-new', date: '2026-08-15', space: 3, owner: '潘閱滔', kind: 'coach', time: '10:30', duration: 75, createdAt: 2 }],
+    records: [{ id: 'coach-new', date: '2026-08-15', space: 3, owner: '洪琇捷', kind: 'coach', time: '10:30', duration: 75, createdAt: 2 }],
   });
   const result = applyDateBookingMutation(current, mutation);
   assert.deepEqual(result, { ok: false, value: current, reason: 'owner-conflict' });
@@ -1230,11 +1230,11 @@ test('isAdminTeachingOverlapPair 認定行政時段與一般課或團課組合',
 
 test('同教練的團課與行政時段重疊時 transaction 放行', () => {
   const current = {
-    admin: { ...adminBooking('admin', '10:00', 60), owner: '潘閱滔' },
+    admin: { ...adminBooking('admin', '10:00', 60), owner: '洪琇捷' },
   };
   const mutation = buildDateBookingMutation({
     mode: 'create',
-    records: teamBookings('team-overlap-admin', [7, 8, 9], { owner: '潘閱滔', time: '10:30', duration: 60, date: '2026-08-15' }),
+    records: teamBookings('team-overlap-admin', [7, 8, 9], { owner: '洪琇捷', time: '10:30', duration: 60, date: '2026-08-15' }),
   });
   const result = applyDateBookingMutation(current, mutation);
   assert.equal(result.ok, true, '團課與行政時段重疊應允許');

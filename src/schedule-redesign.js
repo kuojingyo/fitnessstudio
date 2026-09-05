@@ -32,15 +32,15 @@ const FALLBACK_KEY = 'relife_schedule_v2_bookings';
 const SESSION_KEY = 'relife_schedule_user';
 const INBOX_ROOT = 'scheduleV2Inbox';
 const INBOX_FALLBACK_KEY = 'relife_schedule_v2_inbox';
-const PASSWORDS = { '老闆': '1564', '史昕銓': '1226', '高芷妍': 'kari812615', '潘閱滔': 'e3828736' };
+const PASSWORDS = { '老闆': '1564', '史昕銓': '1226', '高芷妍': 'kari812615', '洪琇捷': 'abc1228' };
 const USERS = {
   '老闆': { name: '老闆', role: 'admin' },
   '史昕銓': { name: '史昕銓', role: 'admin' },
   '高芷妍': { name: '高芷妍', role: 'user' },
-  '潘閱滔': { name: '潘閱滔', role: 'user' }
+  '洪琇捷': { name: '洪琇捷', role: 'user' }
 };
 const OTHER_OWNER = '其他';
-const SCHEDULABLE_USERS = ['史昕銓', '高芷妍', '潘閱滔'];
+const SCHEDULABLE_USERS = ['史昕銓', '高芷妍', '洪琇捷'];
 const TEAM_SPACES = [7, 8, 9];
 const SPACES = 9;
 const SPACE_NAMES = ['行政時段', '一樓槓座', '一樓史密斯', '一樓cable', '一樓機動空間', '二樓槓座', '二樓自由重量(1)', '二樓自由重量(2)', '二樓機動空間'];
@@ -97,7 +97,7 @@ function isTeamSpace(space) { return TEAM_SPACES.includes(Number(space)); }
 function ownerLabel(booking) { return booking.owner === OTHER_OWNER ? (booking.nickname || OTHER_OWNER) : (booking.owner || '未指定'); }
 function ownerColorClass(owner) {
   if (owner === '高芷妍') return 'high';
-  if (owner === '潘閱滔') return 'pan';
+  if (owner === '洪琇捷') return 'pan';
   if (owner === '史昕銓') return 'shi';
   return '';
 }

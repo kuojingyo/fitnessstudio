@@ -12,7 +12,7 @@ const TIME_PATTERN = /^(\d{2}):(\d{2})$/;
 const DANGEROUS_CHILD_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const PATCH_EXPECTED_FIELDS = ['time', 'duration', 'space', 'owner', 'kind'];
 const TEAM_SPACES = [7, 8, 9];
-const SCHEDULABLE_OWNERS = new Set(['史昕銓', '高芷妍', '潘閱滔', OTHER_OWNER]);
+const SCHEDULABLE_OWNERS = new Set(['史昕銓', '高芷妍', '洪琇捷', OTHER_OWNER]);
 
 export function bookingMutationErrorMessage(reason) {
   if (reason === 'admin-capacity') return `⚠️ 行政時段同一時間最多安排 ${ADMIN_CAPACITY} 位教練。`;

@@ -4,14 +4,14 @@ import assert from 'node:assert/strict';
 import { buildInboxMessage, normalizeInbox, unreadCount, withAllRead, withMessageRead, withoutMessage, withoutReadMessages } from '../src/schedule-inbox.js';
 
 const validArgs = {
-  id: 'm1', to: '潘閱滔', from: '史昕銓', kind: 'admin',
+  id: 'm1', to: '洪琇捷', from: '史昕銓', kind: 'admin',
   date: '2026-08-18', time: '09:00', duration: 60, space: 1, createdAt: 100,
 };
 
 test('建立正常收件箱訊息', () => {
   const message = buildInboxMessage(validArgs);
   assert.deepEqual(message, {
-    id: 'm1', to: '潘閱滔', from: '史昕銓', kind: 'admin',
+    id: 'm1', to: '洪琇捷', from: '史昕銓', kind: 'admin',
     date: '2026-08-18', time: '09:00', duration: 60, space: 1,
     read: false, createdAt: 100,
   });
@@ -80,26 +80,26 @@ test('全部標記已讀', () => {
 
 test('normalizeInbox 過濾畸形資料並保留有效訊息', () => {
   const data = {
-    '潘閱滔': {
-      ok: { id: 'ok', to: '潘閱滔', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '09:00', duration: 60, space: 2, read: false, createdAt: 1 },
-      bad: { id: 'bad', to: '潘閱滔', from: '史昕銓', kind: 'coach', date: '2026-8-18', time: '09:00', duration: 60, space: 2 },
+    '洪琇捷': {
+      ok: { id: 'ok', to: '洪琇捷', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '09:00', duration: 60, space: 2, read: false, createdAt: 1 },
+      bad: { id: 'bad', to: '洪琇捷', from: '史昕銓', kind: 'coach', date: '2026-8-18', time: '09:00', duration: 60, space: 2 },
       garbage: 'not-an-object',
-      danger: { id: '__proto__', to: '潘閱滔', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '09:00', duration: 60, space: 2 },
+      danger: { id: '__proto__', to: '洪琇捷', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '09:00', duration: 60, space: 2 },
     },
     '史昕銓': null,
   };
   const normalized = normalizeInbox(data);
-  assert.deepEqual(Object.keys(normalized['潘閱滔']), ['ok']);
+  assert.deepEqual(Object.keys(normalized['洪琇捷']), ['ok']);
   assert.deepEqual(normalized['史昕銓'], undefined);
 });
 
 test('normalizeInbox 接受陣列並以 id 為鍵', () => {
   const normalized = normalizeInbox({
-    '潘閱滔': [
-      { id: 'a', to: '潘閱滔', from: '史昕銓', kind: 'admin', date: '2026-08-18', time: '09:00', duration: 60, space: 1 },
+    '洪琇捷': [
+      { id: 'a', to: '洪琇捷', from: '史昕銓', kind: 'admin', date: '2026-08-18', time: '09:00', duration: 60, space: 1 },
     ],
   });
-  assert.deepEqual(Object.keys(normalized['潘閱滔']), ['a']);
+  assert.deepEqual(Object.keys(normalized['洪琇捷']), ['a']);
 });
 
 test('拒絕時間超出範圍的收件箱訊息', () => {
@@ -109,9 +109,9 @@ test('拒絕時間超出範圍的收件箱訊息', () => {
 });
 
 test('normalizeInbox 過濾危險使用者鍵', () => {
-  const payload = JSON.parse('{"__proto__":{"x":{"id":"x","to":"潘閱滔","from":"史昕銓","kind":"coach","date":"2026-08-18","time":"09:00","duration":60,"space":2}},"潘閱滔":{"a":{"id":"a","to":"潘閱滔","from":"史昕銓","kind":"coach","date":"2026-08-18","time":"09:00","duration":60,"space":2}}}');
+  const payload = JSON.parse('{"__proto__":{"x":{"id":"x","to":"洪琇捷","from":"史昕銓","kind":"coach","date":"2026-08-18","time":"09:00","duration":60,"space":2}},"洪琇捷":{"a":{"id":"a","to":"洪琇捷","from":"史昕銓","kind":"coach","date":"2026-08-18","time":"09:00","duration":60,"space":2}}}');
   const normalized = normalizeInbox(payload);
-  assert.deepEqual(Object.keys(normalized), ['潘閱滔']);
+  assert.deepEqual(Object.keys(normalized), ['洪琇捷']);
   assert.equal(Object.getPrototypeOf(normalized) === Object.prototype, true);
 });
 
@@ -134,13 +134,13 @@ test('重疊通知訊息：overlap kind 與 remark 選填欄位', () => {
 
 test('normalizeInbox 保留已讀狀態，不重置為未讀', () => {
   const normalized = normalizeInbox({
-    '潘閱滔': {
-      a: { id: 'a', to: '潘閱滔', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '09:00', duration: 60, space: 2, read: true, createdAt: 1 },
-      b: { id: 'b', to: '潘閱滔', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '10:00', duration: 60, space: 2, read: false, createdAt: 2 },
+    '洪琇捷': {
+      a: { id: 'a', to: '洪琇捷', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '09:00', duration: 60, space: 2, read: true, createdAt: 1 },
+      b: { id: 'b', to: '洪琇捷', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '10:00', duration: 60, space: 2, read: false, createdAt: 2 },
     },
   });
-  assert.equal(normalized['潘閱滔']['a'].read, true, '已讀訊息載入後必須保持已讀');
-  assert.equal(normalized['潘閱滔']['b'].read, false, '未讀訊息維持未讀');
+  assert.equal(normalized['洪琇捷']['a'].read, true, '已讀訊息載入後必須保持已讀');
+  assert.equal(normalized['洪琇捷']['b'].read, false, '未讀訊息維持未讀');
 });
 
 test('buildInboxMessage 接受 read 參數（預設 false）', () => {
