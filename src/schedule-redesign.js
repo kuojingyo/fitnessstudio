@@ -1,4 +1,5 @@
 import './schedule-redesign.css';
+import { buildDayBookingIndex } from './schedule-day-index.js';
 import { ADMIN_CAPACITY, buildAdminSegments, buildAdminSlotStates, wouldExceedAdminCapacity } from './admin-schedule-layout.js';
 import {
   ADMIN_DURATIONS,
@@ -898,14 +899,13 @@ function attachDateNav(container) {
   $('[data-today]', container)?.addEventListener('click', () => { currentDate = new Date(); selectedDateKey = null; renderCurrentView(); });
 }
 function monthBookingsForUser(dateKey) {
-  const list = bookingsForDate(dateKey).filter(b => isBossManager() ? isSchedulableBookingOwner(b.owner) : b.owner === currentUser.name);
+  const list = bookingsForDate(dateKey).filter(b => isSchedulableBookingOwner(b.owner));
   return uniqueTeamBookings(list).sort((a, b) => timeToSlot(a.time) - timeToSlot(b.time));
 }
 function renderMonthView(main) {
   const year = currentDate.getFullYear(), month = currentDate.getMonth();
   const first = new Date(year, month, 1), last = new Date(year, month + 1, 0);
-  const bossOverview = isBossManager();
-  let html = renderToolbar(bossOverview ? '教練月檢視' : '我的月檢視', bossOverview ? '查看教練與場租人員的排課概況' : `${escapeHtml(currentUser.name)} 的行政排班與教練課程`);
+  let html = renderToolbar('教練月檢視', '查看所有教練與場租人員的排課概況');
   if (isAdmin()) html += '<div class="rs-permission-note">管理員：在行政排班項目上按右鍵可複製，於其他日期的格子按右鍵可貼上。同一時間最多 3 位教練。</div>';
   html += '<div class="rs-month-grid">' + ['日', '一', '二', '三', '四', '五', '六'].map(day => `<div class="rs-weekday">${day}</div>`).join('') + '</div>';
   html += '<div class="rs-month-grid" id="rs-month-days">';
@@ -931,7 +931,7 @@ function monthDayHtml(date, other) {
   if (isToday(date)) classes.push('today');
   if (selectedDateKey === key) classes.push('selected');
   const items = other ? [] : monthBookingsForUser(key);
-  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${isBossManager() ? `${escapeHtml(ownerLabel(b))}｜` : ''}${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
+  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${escapeHtml(ownerLabel(b))}｜${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
   return `<div class="${classes.join(' ')}" data-date="${key}"><div class="rs-day-number">${date.getDate()}</div>${content}</div>`;
 }
 function statsForOwner(owner, year, month) {
@@ -953,7 +953,7 @@ function statsForOwner(owner, year, month) {
   return { adminHours: adminMinutes / 60, coachClasses, teamClasses };
 }
 function renderStats(container, year, month) {
-  const owners = isAdmin() ? SCHEDULABLE_USERS : [currentUser.name];
+  const owners = SCHEDULABLE_USERS;
   container.innerHTML = owners.map(owner => {
     const stats = statsForOwner(owner, year, month);
     return `<section class="rs-stat-card"><h3>📊 ${escapeHtml(owner)} 本月統計</h3>
@@ -962,9 +962,6 @@ function renderStats(container, year, month) {
       <div class="rs-stat-line"><span>團課堂數</span><span class="rs-stat-value">${stats.teamClasses} 堂</span></div>
     </section>`;
   }).join('');
-}
-function findBookingAtSlot(bookings, space, slot) {
-  return bookings.find(b => Number(b.space) === Number(space) && timeToSlot(b.time) <= slot && slot < timeToSlot(b.time) + durationToSlots(b.duration));
 }
 function renderAdminTimeline(dayBookings) {
   const adminBookings = dayBookings
@@ -1292,6 +1289,7 @@ function attachMonthClipboard(main) {
 function renderDayView(main) {
   const dateKey = fmtDate(currentDate);
   const dayBookings = allBookingsForDate(dateKey);
+  const bookingIndex = buildDayBookingIndex(dayBookings, SLOTS_PER_DAY);
   let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表`);
   html += `<div class="rs-permission-note">${isAdmin() ? `管理員：拖曳行政卡片上下邊框可調整時間；在行政卡片按右鍵可複製，切換日期後於行政欄按右鍵貼上。同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '可為任何教練排課；行政時段僅管理員可編輯。課程卡片末端顯示新增者。'}</div>`;
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
@@ -1302,7 +1300,7 @@ function renderDayView(main) {
         if (slot === 0) html += `<td class="rs-admin-column" rowspan="${SLOTS_PER_DAY}">${renderAdminTimeline(dayBookings)}</td>`;
         continue;
       }
-      const booking = findBookingAtSlot(dayBookings, space, slot);
+      const booking = bookingIndex.get(space)?.[slot];
       if (booking && timeToSlot(booking.time) !== slot) continue;
       if (!booking) {
         const clickable = canCreateAt(space, dateKey);
