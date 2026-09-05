@@ -22,6 +22,7 @@ import {
   isSchedulableBookingOwner,
 } from './schedule-booking-transaction.js';
 import { createIdleTimeout, IDLE_TIMEOUT_MS } from './schedule-idle-timeout.js';
+import { normalizeClosedDays, isClosedDay } from './schedule-closed-days.js';
 import {
   buildInboxMessage, normalizeInbox, unreadCount, withAllRead, withMessageRead,
   withoutMessage, withoutReadMessages,
@@ -32,6 +33,8 @@ const FALLBACK_KEY = 'relife_schedule_v2_bookings';
 const SESSION_KEY = 'relife_schedule_user';
 const INBOX_ROOT = 'scheduleV2Inbox';
 const INBOX_FALLBACK_KEY = 'relife_schedule_v2_inbox';
+const CLOSED_DAYS_ROOT = 'scheduleV2ClosedDays';
+const CLOSED_DAYS_FALLBACK_KEY = 'relife_schedule_v2_closed_days';
 const PASSWORDS = { '老闆': '1564', '史昕銓': '1226', '高芷妍': 'kari812615', '洪琇捷': 'abc1228' };
 const USERS = {
   '老闆': { name: '老闆', role: 'admin' },
@@ -60,6 +63,7 @@ let dataStatus = 'loading';
 let dataErrorMessage = '';
 let rawBookings = {};
 let inboxByUser = {};
+let closedDays = {};
 let currentUser = null;
 let idleTimeout = null;
 let currentDate = new Date();
@@ -170,13 +174,16 @@ function uniqueTeamBookings(list) {
 function ownerChoices() {
   return [...SCHEDULABLE_USERS, OTHER_OWNER];
 }
+function isDateClosed(dateKey) { return isClosedDay(closedDays, dateKey); }
 function canCreateAt(space, dateKey) {
   if (!isDataReady()) return false;
+  if (isDateClosed(dateKey)) return false;
   if (isAdminSpace(space)) return isAdmin();
   return true;
 }
 function canEditBooking(booking) {
   if (!currentUser || !isDataReady()) return false;
+  if (isDateClosed(booking.date)) return false;
   if (isAdminSpace(booking.space)) return isAdmin();
   return true;
 }
@@ -351,6 +358,8 @@ async function initDataLayer() {
     catch { rawBookings = {}; }
     try { inboxByUser = normalizeInbox(JSON.parse(localStorage.getItem(INBOX_FALLBACK_KEY) || '{}')); }
     catch { inboxByUser = {}; }
+    try { closedDays = normalizeClosedDays(JSON.parse(localStorage.getItem(CLOSED_DAYS_FALLBACK_KEY) || '{}')); }
+    catch { closedDays = {}; }
     dataStatus = 'ready';
     dataErrorMessage = '';
     window.addEventListener('storage', event => {
@@ -372,6 +381,14 @@ async function initDataLayer() {
           console.error('本機收件箱資料解析失敗：', error);
         }
       }
+      if (event.key === CLOSED_DAYS_FALLBACK_KEY) {
+        try {
+          closedDays = normalizeClosedDays(JSON.parse(event.newValue || '{}'));
+          renderCurrentView();
+        } catch (error) {
+          console.error('本機休息日資料解析失敗：', error);
+        }
+      }
     });
     renderRoot();
     renderCurrentView();
@@ -390,6 +407,12 @@ async function initDataLayer() {
       renderCurrentView();
     }, error => {
       console.error('收件箱讀取失敗：', error);
+    });
+    firebaseApi.onValue(firebaseApi.ref(db, CLOSED_DAYS_ROOT), snapshot => {
+      closedDays = normalizeClosedDays(snapshot.val() || {});
+      renderCurrentView();
+    }, error => {
+      console.error('休息日讀取失敗：', error);
     });
   }
 }
@@ -907,6 +930,7 @@ function renderMonthView(main) {
   const first = new Date(year, month, 1), last = new Date(year, month + 1, 0);
   let html = renderToolbar('教練月檢視', '查看所有教練與場租人員的排課概況');
   if (isAdmin()) html += '<div class="rs-permission-note">管理員：在行政排班項目上按右鍵可複製，於其他日期的格子按右鍵可貼上。同一時間最多 3 位教練。</div>';
+  if (isBossManager()) html += '<div class="rs-permission-note">老闆：在日期上按右鍵可設定／解除休館日。休館日當天所有人無法排課，月曆以紅色顯示。</div>';
   html += '<div class="rs-month-grid">' + ['日', '一', '二', '三', '四', '五', '六'].map(day => `<div class="rs-weekday">${day}</div>`).join('') + '</div>';
   html += '<div class="rs-month-grid" id="rs-month-days">';
   for (let i = first.getDay() - 1; i >= 0; i--) html += monthDayHtml(new Date(year, month, -i), true);
@@ -923,6 +947,14 @@ function renderMonthView(main) {
     else { currentDate = parseDate(key); selectedDateKey = key; $$('.rs-month-day.selected', main).forEach(item => item.classList.remove('selected')); day.classList.add('selected'); }
   }));
   renderStats($('#rs-stats', main), year, month);
+  if (isBossManager()) {
+    $$('.rs-month-day[data-date]', main).forEach(day => {
+      day.addEventListener('contextmenu', event => {
+        event.preventDefault();
+        toggleClosedDay(day.dataset.date);
+      });
+    });
+  }
 }
 function monthDayHtml(date, other) {
   const key = fmtDate(date);
@@ -930,8 +962,12 @@ function monthDayHtml(date, other) {
   if (other) classes.push('other');
   if (isToday(date)) classes.push('today');
   if (selectedDateKey === key) classes.push('selected');
-  const items = other ? [] : monthBookingsForUser(key);
-  const content = items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${escapeHtml(ownerLabel(b))}｜${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : '');
+  const closed = !other && isDateClosed(key);
+  if (closed) classes.push('closed');
+  const items = closed ? [] : (other ? [] : monthBookingsForUser(key));
+  const content = closed
+    ? '<div class="rs-closed-note">休館日</div>'
+    : (items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${escapeHtml(ownerLabel(b))}｜${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : ''));
   return `<div class="${classes.join(' ')}" data-date="${key}"><div class="rs-day-number">${date.getDate()}</div>${content}</div>`;
 }
 function statsForOwner(owner, year, month) {
@@ -1290,7 +1326,9 @@ function renderDayView(main) {
   const dateKey = fmtDate(currentDate);
   const dayBookings = allBookingsForDate(dateKey);
   const bookingIndex = buildDayBookingIndex(dayBookings, SLOTS_PER_DAY);
-  let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表`);
+  const dayClosed = isDateClosed(dateKey);
+  let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表${dayClosed ? ' · 🔴 休館日' : ''}`);
+  if (dayClosed) html += '<div class="rs-permission-note rs-closed-banner">🔴 本日為休館日，無法新增或修改排課。</div>';
   html += `<div class="rs-permission-note">${isAdmin() ? `管理員：拖曳行政卡片上下邊框可調整時間；在行政卡片按右鍵可複製，切換日期後於行政欄按右鍵貼上。同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '可為任何教練排課；行政時段僅管理員可編輯。課程卡片末端顯示新增者。'}</div>`;
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
   for (let slot = 0; slot < SLOTS_PER_DAY; slot++) {
@@ -1354,7 +1392,7 @@ function buildModal(mode, booking, space, slot, dateKey) {
 }
 function openCreateModal(space, slot, dateKey, triggerElement = null) {
   if (!canCreateAt(space, dateKey)) {
-    showToast('⚠️ 行政時段只有管理員可以編輯');
+    showToast(isDateClosed(dateKey) ? '🔴 休館日無法排課' : '⚠️ 行政時段只有管理員可以編輯');
     return;
   }
   lastModalTrigger = triggerElement || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
@@ -1362,7 +1400,10 @@ function openCreateModal(space, slot, dateKey, triggerElement = null) {
   mountModal();
 }
 function openEditModal(booking, dateKey, triggerElement = null) {
-  if (!canEditBooking(booking)) { showToast('🔒 目前帳號沒有編輯這筆排課的權限'); return; }
+  if (!canEditBooking(booking)) {
+    showToast(isDateClosed(booking.date) ? '🔴 休館日無法修改排課' : '🔒 目前帳號沒有編輯這筆排課的權限');
+    return;
+  }
   lastModalTrigger = triggerElement || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const originalRecords = booking.groupId
     ? allBookingsForDate(dateKey).filter(item => item.groupId === booking.groupId)
@@ -1481,7 +1522,11 @@ async function submitBooking() {
   if (!state || mutationInProgress) return;
   const scrollSnapshot = captureScheduleScroll();
   if (state.mode === 'create' && !canCreateAt(state.space, state.dateKey)) {
-    showToast('⚠️ 行政時段只有管理員可以編輯');
+    showToast(isDateClosed(state.dateKey) ? '🔴 休館日無法排課' : '⚠️ 行政時段只有管理員可以編輯');
+    return;
+  }
+  if (state.mode === 'edit' && isDateClosed(state.dateKey)) {
+    showToast('🔴 休館日無法修改排課');
     return;
   }
   const values = readModalValues();
@@ -1561,6 +1606,50 @@ async function deleteCurrentBooking() {
     renderCurrentView();
     restoreScheduleScroll(scrollSnapshot);
     showToast(groupId ? '🗑️ 團課已取消' : (state.booking.draft === true ? '🗑️ 預排班已移除' : '🗑️ 排課已取消'));
+  } finally {
+    mutationInProgress = false;
+  }
+}
+async function toggleClosedDay(dateKey) {
+  if (!isBossManager() || mutationInProgress || !isDataReady()) return;
+  if (isDateClosed(dateKey)) {
+    if (!window.confirm(`解除 ${dateKey} 的休館日？\n解除後所有人都可以在這天排課。`)) return;
+    mutationInProgress = true;
+    try {
+      if (useFallback) {
+        const next = { ...closedDays };
+        delete next[dateKey];
+        localStorage.setItem(CLOSED_DAYS_FALLBACK_KEY, JSON.stringify(next));
+        closedDays = next;
+      } else {
+        await firebaseApi.remove(firebaseApi.ref(db, `${CLOSED_DAYS_ROOT}/${dateKey}`));
+      }
+      showToast(`✅ ${dateKey} 已解除休館日`);
+      renderCurrentView();
+    } catch (error) {
+      console.error('解除休館日失敗：', error);
+      showToast('⚠️ 解除休館日失敗，請稍後再試');
+    } finally {
+      mutationInProgress = false;
+    }
+    return;
+  }
+  if (!window.confirm(`將 ${dateKey} 設定為休館日？\n設定後所有人當天都無法排課，已存在的排課也無法編輯。`)) return;
+  mutationInProgress = true;
+  try {
+    const record = { closedBy: '老闆', createdAt: Date.now() };
+    if (useFallback) {
+      const next = { ...closedDays, [dateKey]: record };
+      localStorage.setItem(CLOSED_DAYS_FALLBACK_KEY, JSON.stringify(next));
+      closedDays = next;
+    } else {
+      await firebaseApi.set(firebaseApi.ref(db, `${CLOSED_DAYS_ROOT}/${dateKey}`), record);
+    }
+    showToast(`🔴 ${dateKey} 已設定為休館日`);
+    renderCurrentView();
+  } catch (error) {
+    console.error('設定休館日失敗：', error);
+    showToast('⚠️ 設定休館日失敗，請稍後再試');
   } finally {
     mutationInProgress = false;
   }

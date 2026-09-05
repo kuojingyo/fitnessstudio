@@ -101,6 +101,12 @@
 .rs-month-day.other { opacity:.38; background:#ECE7DF; }
 .rs-month-day.today { border:2px solid var(--rs-accent); padding:calc(.55rem - 1px); }
 .rs-month-day.selected { box-shadow:0 0 0 3px var(--rs-sage); }
+/* ── 休館日（僅老闆可設定）── */
+.rs-month-day.closed { background:#FDECEA; border-color:#E57373; }
+.rs-month-day.closed:hover { border-color:#C75450; box-shadow:0 2px 8px rgba(199,84,80,.25); }
+.rs-month-day.closed .rs-day-number { color:#C75450; }
+.rs-closed-note { margin-top:.3rem; padding:.2rem .35rem; border-radius:5px; background:#E57373; color:var(--rs-white); font-size:.68rem; font-weight:800; text-align:center; letter-spacing:.08em; }
+.rs-closed-banner { color:#C75450; font-weight:700; }
 .rs-day-number { font-size:1rem; font-weight:800; margin-bottom:.35rem; }
 .rs-day-item { margin-top:.27rem; padding:.25rem .35rem; border-radius:5px; background:#F7F4EF; font-size:.68rem; line-height:1.35; word-break:break-word; }
 .rs-day-item.admin { background:#EEE8F3; color:#5C476C; }
