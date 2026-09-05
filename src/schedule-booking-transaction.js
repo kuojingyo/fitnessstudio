@@ -295,7 +295,7 @@ export function buildDateBookingMutation({
   };
 }
 
-export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Date.now() }) {
+export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Date.now(), createdBy = '' }) {
   const destinationDate = String(targetDate ?? '').trim();
   const sourceOwner = normalizedOwner(source?.owner);
   const sourceNickname = typeof source?.nickname === 'string' ? source.nickname.trim() : '';
@@ -311,6 +311,7 @@ export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Dat
     || sourceDuration == null
     || normalizedKind(source) !== 'admin'
     || String(source.date ?? '').trim() === destinationDate) return null;
+  const operator = String(createdBy ?? '').trim();
   const booking = {
     id: String(id),
     date: destinationDate,
@@ -323,6 +324,7 @@ export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Dat
   };
   if (sourceNickname) booking.nickname = sourceNickname;
   if (source.remark) booking.remark = String(source.remark);
+  if (operator) booking.createdBy = operator;
   return {
     booking,
     mutation: buildDateBookingMutation({ mode: 'create', records: [booking] }),

@@ -893,6 +893,63 @@ test('跨日期貼上行政時段會建立新 id 並只複製可排課欄位', (
   });
 });
 
+test('跨日期貼上行政時段會記錄操作者 createdBy', () => {
+  const source = {
+    id: 'source-admin',
+    date: '2026-08-14',
+    space: 1,
+    owner: '史昕銓',
+    kind: 'admin',
+    time: '09:00',
+    duration: 60,
+    createdBy: '舊操作者',
+  };
+
+  const result = bookingTransactionModule.buildAdminBookingPaste({
+    source,
+    targetDate: '2026-08-15',
+    id: 'new-admin',
+    createdAt: 200,
+    createdBy: '王教練',
+  });
+
+  assert.equal(result.booking.createdBy, '王教練');
+  assert.equal(Object.hasOwn(result.booking, 'createdBy'), true);
+});
+
+test('行政貼上未提供操作者時不寫入 createdBy 欄位', () => {
+  const source = {
+    id: 'source-admin',
+    date: '2026-08-14',
+    space: 1,
+    owner: '史昕銓',
+    kind: 'admin',
+    time: '09:00',
+    duration: 60,
+  };
+
+  const result = bookingTransactionModule.buildAdminBookingPaste({
+    source,
+    targetDate: '2026-08-15',
+    id: 'new-admin',
+    createdAt: 200,
+  });
+
+  assert.equal(Object.hasOwn(result.booking, 'createdBy'), false);
+});
+
+test('行政貼上不保留來源紀錄的 createdBy（貼上者才是操作者）', () => {
+  const result = bookingTransactionModule.buildAdminBookingPaste({
+    source: { ...adminBooking('source-admin'), owner: '史昕銓', createdBy: '原始建立者' },
+    targetDate: '2026-08-15',
+    id: 'new-admin',
+    createdAt: 200,
+    createdBy: '貼上者',
+  });
+
+  assert.equal(result.booking.createdBy, '貼上者');
+});
+
 test('行政時段不可貼回來源日期', () => {
   const source = adminBooking('source-admin');
 

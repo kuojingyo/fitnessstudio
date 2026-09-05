@@ -299,6 +299,7 @@ async function pasteAdminBooking(dateKey) {
     source: adminBookingClipboard,
     targetDate: dateKey,
     id: firebaseId(dateKey),
+    createdBy: currentUser.name,
   });
   if (!prepared) {
     showToast('⚠️ 行政時段只能貼到其他日期');
@@ -956,6 +957,9 @@ function renderMonthView(main) {
     });
   }
 }
+function creatorNoteHtml(booking) {
+  return booking?.createdBy ? `<div class="rs-creator">由 ${escapeHtml(booking.createdBy)} 加入</div>` : '';
+}
 function monthDayHtml(date, other) {
   const key = fmtDate(date);
   const classes = ['rs-month-day'];
@@ -967,7 +971,7 @@ function monthDayHtml(date, other) {
   const items = closed ? [] : (other ? [] : monthBookingsForUser(key));
   const content = closed
     ? '<div class="rs-closed-note">休館日</div>'
-    : (items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${escapeHtml(ownerLabel(b))}｜${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : ''));
+    : (items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${escapeHtml(ownerLabel(b))}｜${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}${creatorNoteHtml(b)}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : ''));
   return `<div class="${classes.join(' ')}" data-date="${key}"><div class="rs-day-number">${date.getDate()}</div>${content}</div>`;
 }
 function statsForOwner(owner, year, month) {
@@ -1347,8 +1351,7 @@ function renderDayView(main) {
       }
       const display = `${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}`;
       const remark = booking.remark ? `<div class="rs-remark">📝 ${escapeHtml(booking.remark)}</div>` : '';
-      const creatorNote = booking.createdBy ? `<div class="rs-creator">由 ${escapeHtml(booking.createdBy)} 加入</div>` : '';
-      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}" rowspan="${durationToSlots(booking.duration)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))}</small>${remark}${creatorNote}</td>`;
+      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}" rowspan="${durationToSlots(booking.duration)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))}</small>${remark}${creatorNoteHtml(booking)}</td>`;
     }
     html += '</tr>';
   }
