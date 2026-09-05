@@ -98,6 +98,7 @@ function ownerLabel(booking) { return booking.owner === OTHER_OWNER ? (booking.n
 function ownerColorClass(owner) {
   if (owner === '高芷妍') return 'high';
   if (owner === '潘閱滔') return 'pan';
+  if (owner === '史昕銓') return 'shi';
   return '';
 }
 function courseLabel(booking) { return booking.kind === 'team' ? '團課' : (booking.space === 1 ? '行政' : '教練課'); }

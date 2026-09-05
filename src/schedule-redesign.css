@@ -15,6 +15,7 @@
   --rs-coach: #43A047;
   --rs-team: #64B5F6;
   --rs-pan: #795548;
+  --rs-shi: #E57373;
 }
 #schedule-redesign, #schedule-redesign * { box-sizing: border-box; }
 #schedule-redesign {
@@ -107,6 +108,7 @@
 .rs-day-item.team { background:#E5F2FC; color:#285A7F; }
 .rs-day-item.high { background:#FFE0B2; color:#9A4B00; }
 .rs-day-item.pan { background:#E7D2C1; color:#5A3825; }
+.rs-day-item.shi { background:#FCE8E7; color:#7B3836; }
 .rs-day-empty { color:#A0968B; font-size:.66rem; margin-top:.5rem; }
 .rs-stats { margin-top:1rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:.7rem; }
 .rs-stat-card { background:var(--rs-white); border:1px solid var(--rs-border); border-radius:9px; padding:.8rem; }
@@ -132,6 +134,7 @@
 .rs-slot.booked.team { background:var(--rs-team); }
 .rs-slot.booked.high { background:#F28C28; }
 .rs-slot.booked.pan { background:var(--rs-pan); }
+.rs-slot.booked.shi { background:var(--rs-shi); }
 .rs-slot.booked:hover { filter:brightness(1.08); }
 .rs-slot small { display:block; font-size:.62rem; font-weight:500; opacity:.9; }
 .rs-slot .rs-remark { font-size:.65rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 .15rem; }
@@ -160,6 +163,7 @@
 }
 .rs-admin-card.high { background:#F28C28; }
 .rs-admin-card.pan { background:var(--rs-pan); }
+.rs-admin-card.shi { background:var(--rs-shi); }
 .rs-admin-card:hover,.rs-admin-card:focus-visible { filter:brightness(1.1); outline:2px solid var(--rs-walnut); outline-offset:-2px; z-index:1; }
 .rs-admin-card.continues-before { border-top-left-radius:0; border-top-right-radius:0; }
 .rs-admin-card.continues-after { border-bottom-left-radius:0; border-bottom-right-radius:0; }
