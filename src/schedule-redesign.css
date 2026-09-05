@@ -12,7 +12,7 @@
   --rs-danger: #C75450;
   --rs-danger-light: #F5DCDC;
   --rs-admin: #A58BBA;
-  --rs-coach: #E57373;
+  --rs-coach: #43A047;
   --rs-team: #64B5F6;
   --rs-pan: #795548;
 }
@@ -103,7 +103,7 @@
 .rs-day-number { font-size:1rem; font-weight:800; margin-bottom:.35rem; }
 .rs-day-item { margin-top:.27rem; padding:.25rem .35rem; border-radius:5px; background:#F7F4EF; font-size:.68rem; line-height:1.35; word-break:break-word; }
 .rs-day-item.admin { background:#EEE8F3; color:#5C476C; }
-.rs-day-item.coach { background:#FCE8E7; color:#7B3836; }
+.rs-day-item.coach { background:#E8F5E9; color:#2E7D32; }
 .rs-day-item.team { background:#E5F2FC; color:#285A7F; }
 .rs-day-item.high { background:#FFE0B2; color:#9A4B00; }
 .rs-day-item.pan { background:#E7D2C1; color:#5A3825; }
