@@ -138,6 +138,7 @@
 .rs-slot.booked:hover { filter:brightness(1.08); }
 .rs-slot small { display:block; font-size:.62rem; font-weight:500; opacity:.9; }
 .rs-slot .rs-remark { font-size:.65rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 .15rem; }
+.rs-slot .rs-creator { font-size:.6rem; font-weight:500; opacity:.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 .15rem; }
 .rs-admin-column { position:relative; height:auto; padding:0; vertical-align:top; overflow:hidden; background:#FCFBF8; }
 .rs-admin-timeline {
   position:relative; width:100%; overflow:hidden;

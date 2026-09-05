@@ -12,7 +12,6 @@ import {
   bookingSpaceNumber,
   bookingDurationNumber,
   bookingMutationErrorMessage,
-  canModifyPastBooking,
   buildAdminBookingPaste,
   buildDateBookingMutation,
   buildPublishDraftMutation,
@@ -168,26 +167,17 @@ function uniqueTeamBookings(list) {
   });
 }
 function ownerChoices() {
-  if (isAdmin()) return [...SCHEDULABLE_USERS, OTHER_OWNER];
-  return SCHEDULABLE_USERS.includes(currentUser?.name) ? [currentUser.name, OTHER_OWNER] : [OTHER_OWNER];
+  return [...SCHEDULABLE_USERS, OTHER_OWNER];
 }
 function canCreateAt(space, dateKey) {
   if (!isDataReady()) return false;
-  if (isAdmin()) return true;
-  if (isAdminSpace(space)) return false;
-  return canModifyPastBooking(currentUser.name, dateKey, fmtDate(new Date()));
-}
-function createDeniedByPastDate(space, dateKey) {
-  return !isAdmin()
-    && !isAdminSpace(space)
-    && !canModifyPastBooking(currentUser.name, dateKey, fmtDate(new Date()));
+  if (isAdminSpace(space)) return isAdmin();
+  return true;
 }
 function canEditBooking(booking) {
   if (!currentUser || !isDataReady()) return false;
-  if (isAdmin()) return true;
-  if (isAdminSpace(booking.space)) return false;
-  if (booking.owner !== currentUser.name && booking.owner !== OTHER_OWNER) return false;
-  return canModifyPastBooking(currentUser.name, booking.date, fmtDate(new Date()));
+  if (isAdminSpace(booking.space)) return isAdmin();
+  return true;
 }
 function canDeleteBooking(booking) { return canEditBooking(booking); }
 function canUseKind(kind, space) { return kind !== 'team' || isTeamSpace(space); }
@@ -1303,7 +1293,7 @@ function renderDayView(main) {
   const dateKey = fmtDate(currentDate);
   const dayBookings = allBookingsForDate(dateKey);
   let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表`);
-  html += `<div class="rs-permission-note">${isAdmin() ? `管理員：拖曳行政卡片上下邊框可調整時間；在行政卡片按右鍵可複製，切換日期後於行政欄按右鍵貼上。同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '一般使用者：可編輯教練課與「其他」課程；行政時段僅管理員可編輯。'}</div>`;
+  html += `<div class="rs-permission-note">${isAdmin() ? `管理員：拖曳行政卡片上下邊框可調整時間；在行政卡片按右鍵可複製，切換日期後於行政欄按右鍵貼上。同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '可為任何教練排課；行政時段僅管理員可編輯。課程卡片末端顯示新增者。'}</div>`;
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
   for (let slot = 0; slot < SLOTS_PER_DAY; slot++) {
     html += `<tr class="${slot % 4 === 0 ? 'hour' : ''}"><td class="time">${slotToTime(slot)}</td>`;
@@ -1316,13 +1306,13 @@ function renderDayView(main) {
       if (booking && timeToSlot(booking.time) !== slot) continue;
       if (!booking) {
         const clickable = canCreateAt(space, dateKey);
-        const blockedByPastDate = !clickable && createDeniedByPastDate(space, dateKey);
-        html += `<td class="rs-slot empty" ${clickable ? `data-create-space="${space}" data-create-slot="${slot}"` : `title="${blockedByPastDate ? '過去日期的排課只有老闆與史昕銓可以新增' : '只有管理員可以編輯行政時段'}"`}></td>`;
+        html += `<td class="rs-slot empty" ${clickable ? `data-create-space="${space}" data-create-slot="${slot}"` : 'title="只有管理員可以編輯行政時段"'}></td>`;
         continue;
       }
       const display = `${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}`;
       const remark = booking.remark ? `<div class="rs-remark">📝 ${escapeHtml(booking.remark)}</div>` : '';
-      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}" rowspan="${durationToSlots(booking.duration)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))}</small>${remark}</td>`;
+      const creatorNote = booking.createdBy ? `<div class="rs-creator">由 ${escapeHtml(booking.createdBy)} 加入</div>` : '';
+      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}" rowspan="${durationToSlots(booking.duration)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))}</small>${remark}${creatorNote}</td>`;
     }
     html += '</tr>';
   }
@@ -1344,6 +1334,7 @@ function buildModal(mode, booking, space, slot, dateKey) {
   const durations = isAdminSpace(space) ? ADMIN_DURATIONS : COACH_DURATIONS;
   const duration = editing ? Number(booking.duration) : (isAdminSpace(space) ? 90 : 75);
   const owners = ownerChoices();
+  const selectedOwner = owners.includes(owner) ? owner : owners[0];
   const canChangeKind = isTeamSpace(space);
   const kindOptions = isAdminSpace(space)
     ? '<option value="admin" selected>行政</option>'
@@ -1354,8 +1345,8 @@ function buildModal(mode, booking, space, slot, dateKey) {
   return `<div class="rs-modal-overlay" id="rs-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rs-modal-title"><form class="rs-modal" id="rs-booking-form">
     <button type="button" class="rs-modal-close" id="rs-modal-close" aria-label="關閉排課視窗">✕</button><h2 id="rs-modal-title">${title}</h2><div class="rs-modal-sub">${escapeHtml(info)}</div>
     ${editing ? `<div class="rs-info-box">📅 ${formatDateCN(parseDate(dateKey))}<br>🏠 ${spaceName(booking.space)}<br>👤 ${escapeHtml(ownerLabel(booking))}${booking.draft === true ? '<br>📝 預排班（未上線）' : ''}</div>` : ''}
-    <label for="rs-owner">使用者</label><select id="rs-owner">${owners.map(item => `<option value="${escapeHtml(item)}" ${item === owner ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}</select>
-    <div id="rs-nickname-row" class="${owner === OTHER_OWNER ? '' : 'rs-hidden'}"><label for="rs-nickname">其他暱稱</label><input id="rs-nickname" value="${escapeHtml(editing ? (booking.nickname || '') : '')}" placeholder="例如：小明"></div>
+    <label for="rs-owner">使用者</label><select id="rs-owner">${owners.map(item => `<option value="${escapeHtml(item)}" ${item === selectedOwner ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}</select>
+    <div id="rs-nickname-row" class="${selectedOwner === OTHER_OWNER ? '' : 'rs-hidden'}"><label for="rs-nickname">其他暱稱</label><input id="rs-nickname" value="${escapeHtml(editing ? (booking.nickname || '') : '')}" placeholder="例如：小明"></div>
     <label for="rs-kind">課程類型</label><select id="rs-kind" ${canChangeKind ? '' : 'disabled'}>${kindOptions}</select>
     <div id="rs-team-note" class="rs-permission-note ${kind === 'team' ? '' : 'rs-hidden'}">團課會同時佔用二樓自由重量(1)、二樓自由重量(2)、二樓機動空間。</div>
     <label for="rs-duration">課程時長</label><select id="rs-duration">${durations.map(item => `<option value="${item}" ${item === duration ? 'selected' : ''}>${isAdminSpace(space) ? `${item / 60} 小時` : `${item} 分鐘`}</option>`).join('')}</select>
@@ -1365,7 +1356,7 @@ function buildModal(mode, booking, space, slot, dateKey) {
 }
 function openCreateModal(space, slot, dateKey, triggerElement = null) {
   if (!canCreateAt(space, dateKey)) {
-    showToast(createDeniedByPastDate(space, dateKey) ? '⚠️ 過去日期的排課只有老闆與史昕銓可以新增。' : '⚠️ 行政時段只有管理員可以編輯');
+    showToast('⚠️ 行政時段只有管理員可以編輯');
     return;
   }
   lastModalTrigger = triggerElement || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
@@ -1450,18 +1441,18 @@ function closeModal() {
 function readModalValues() {
   return { owner: $('#rs-owner').value, nickname: $('#rs-nickname').value.trim(), kind: $('#rs-kind').value, duration: Number($('#rs-duration').value), remark: $('#rs-remark').value.trim() };
 }
-function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, remark, time, groupId, draft = false }) {
+function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, remark, time, groupId, draft = false, createdBy }) {
   const result = { id, date: dateKey, space: Number(space), owner, kind, duration: Number(duration), time, createdAt: Date.now() };
   if (draft === true) result.draft = true;
   if (nickname) result.nickname = nickname;
   if (remark) result.remark = remark;
   if (groupId) result.groupId = groupId;
+  if (createdBy) result.createdBy = createdBy;
   return result;
 }
 function targetSpaces(kind, space) { return kind === 'team' ? TEAM_SPACES : [Number(space)]; }
 function validateBooking(values, state, existingIds = []) {
   if (!isSchedulableBookingOwner(values.owner)) return '老闆帳號僅供管理，不能被安排課程。';
-  if (!isAdmin() && values.owner !== currentUser.name && values.owner !== OTHER_OWNER) return '一般使用者只能安排自己或「其他」教練的課程。';
   if (values.owner === OTHER_OWNER && !values.nickname) return '請輸入「其他」的暱稱。';
   if (values.kind === 'team' && !isTeamSpace(state.space)) return '團課只能安排在二樓自由重量區。';
   if (isAdminSpace(state.space) && values.kind !== 'admin') return '行政時段只能使用行政類型。';
@@ -1492,7 +1483,7 @@ async function submitBooking() {
   if (!state || mutationInProgress) return;
   const scrollSnapshot = captureScheduleScroll();
   if (state.mode === 'create' && !canCreateAt(state.space, state.dateKey)) {
-    showToast('⚠️ 過去日期的排課只有老闆與史昕銓可以新增。');
+    showToast('⚠️ 行政時段只有管理員可以編輯');
     return;
   }
   const values = readModalValues();
@@ -1509,6 +1500,7 @@ async function submitBooking() {
     id: state.mode === 'edit' && oldRecords.find(b => Number(b.space) === space) ? oldRecords.find(b => Number(b.space) === space).id : firebaseId(state.dateKey),
     dateKey: state.dateKey, space, owner: values.owner, nickname: values.owner === OTHER_OWNER ? values.nickname : '', kind: values.kind,
     duration: values.duration, remark: values.remark, time: slotToTime(state.slot), groupId, draft,
+    createdBy: state.mode === 'create' ? currentUser.name : undefined,
   }));
   const mutation = buildDateBookingMutation({
     mode: state.mode,
