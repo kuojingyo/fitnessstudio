@@ -75,6 +75,7 @@ let toastTimer = null;
 let mutationInProgress = false;
 let adminResizeState = null;
 let adminBookingClipboard = null;
+let coachBookingClipboard = null;
 
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
@@ -268,8 +269,8 @@ function openAdminContextMenu(event, items) {
       if (button.disabled) return;
       closeAdminContextMenu();
       Promise.resolve(item.action()).catch(error => {
-        console.error('行政時段右鍵操作失敗：', error);
-        showToast('⚠️ 行政時段操作失敗，請稍後再試');
+        console.error('右鍵操作失敗：', error);
+        showToast('⚠️ 右鍵操作失敗，請稍後再試');
       });
     });
     menu.append(button);
@@ -310,6 +311,43 @@ async function pasteAdminBooking(dateKey) {
     const ok = await persistChanges(dateKey, prepared.mutation);
     if (!ok) return;
     showToast(`✅ 已貼上 ${prepared.booking.time}–${endTime(prepared.booking.time, prepared.booking.duration)} ${ownerLabel(prepared.booking)}行政時段`);
+    renderCurrentView();
+  } finally {
+    mutationInProgress = false;
+  }
+}
+function copyCoachBooking(booking) {
+  coachBookingClipboard = { ...booking };
+  showToast(`📋 已複製 ${booking.date} ${booking.time}–${endTime(booking.time, booking.duration)} ${ownerLabel(booking)}教練課`);
+}
+async function pasteCoachBooking(dateKey) {
+  if (!coachBookingClipboard) {
+    showToast('⚠️ 請先在教練課卡片上按右鍵複製');
+    return;
+  }
+  if (mutationInProgress) {
+    showToast('⏳ 上一筆排課仍在儲存，請稍候');
+    return;
+  }
+  if (isDateClosed(dateKey)) {
+    showToast('🔴 休館日無法排課');
+    return;
+  }
+  const prepared = buildCoachBookingPaste({
+    source: coachBookingClipboard,
+    targetDate: dateKey,
+    id: firebaseId(dateKey),
+    createdBy: currentUser.name,
+  });
+  if (!prepared) {
+    showToast('⚠️ 教練課只能貼到其他日期');
+    return;
+  }
+  mutationInProgress = true;
+  try {
+    const ok = await persistChanges(dateKey, prepared.mutation);
+    if (!ok) return;
+    showToast(`✅ 已貼上 ${prepared.booking.time}–${endTime(prepared.booking.time, prepared.booking.duration)} ${ownerLabel(prepared.booking)}教練課`);
     renderCurrentView();
   } finally {
     mutationInProgress = false;
@@ -1304,16 +1342,48 @@ function attachMonthClipboard(main) {
     const items = [];
     if (booking && isAdminSpace(booking.space) && canEditBooking(booking)) {
       items.push({ label: '📋 複製行政時段', action: () => copyAdminBooking(booking) });
+    } else if (booking && canEditBooking(booking) && booking.kind !== 'team' && booking.kind !== 'admin') {
+      items.push({ label: '📋 複製教練課', action: () => copyCoachBooking(booking) });
     }
     if (adminBookingClipboard) {
       const sameDate = adminBookingClipboard.date === dateKey;
       items.push({
-        label: sameDate ? '此日期為複製來源' : `📌 貼上到 ${dateKey}`,
+        label: sameDate ? '此日期為複製來源' : `📌 貼上行政時段到 ${dateKey}`,
         disabled: sameDate,
         action: () => pasteAdminBooking(dateKey),
       });
-    } else if (!booking) {
-      items.push({ label: '請先在行政卡片上按右鍵複製', disabled: true, action: () => {} });
+    }
+    if (coachBookingClipboard) {
+      const sameDate = coachBookingClipboard.date === dateKey || isDateClosed(dateKey);
+      items.push({
+        label: sameDate ? '此日期為複製來源' : `📌 貼上教練課到 ${dateKey}`,
+        disabled: sameDate,
+        action: () => pasteCoachBooking(dateKey),
+      });
+    }
+    if (items.length) openAdminContextMenu(event, items);
+  });
+}
+function attachCoachClipboard(main, dayBookings, dateKey) {
+  const table = $('.rs-day-table', main);
+  if (!table) return;
+  table.addEventListener('contextmenu', event => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('.rs-admin-timeline')) return;
+    const bookingElement = target?.closest('[data-booking-id]');
+    const bookingId = bookingElement?.dataset.bookingId;
+    const booking = bookingId ? dayBookings.find(item => item.id === bookingId) : null;
+    const items = [];
+    if (booking && !isAdminSpace(booking.space) && canEditBooking(booking) && booking.kind !== 'team' && booking.kind !== 'admin') {
+      items.push({ label: '📋 複製教練課', action: () => copyCoachBooking(booking) });
+    }
+    if (coachBookingClipboard) {
+      const sameDate = coachBookingClipboard.date === dateKey || isDateClosed(dateKey);
+      items.push({
+        label: sameDate ? '此日期為複製來源' : `📌 貼上教練課到 ${dateKey}`,
+        disabled: sameDate,
+        action: () => pasteCoachBooking(dateKey),
+      });
     }
     if (items.length) openAdminContextMenu(event, items);
   });
@@ -1326,7 +1396,7 @@ function renderDayView(main) {
   let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表${dayClosed ? ' · 🔴 休館日' : ''}`,
     isBossManager() ? `<button type="button" data-toggle-closed-day="${dateKey}">${dayClosed ? '解除休館日' : '設定為休館日'}</button>` : '');
   if (dayClosed) html += '<div class="rs-permission-note rs-closed-banner">🔴 本日為休館日，無法新增或修改排課。</div>';
-  html += `<div class="rs-permission-note">${isAdmin() ? `管理員：拖曳行政卡片上下邊框可調整時間；在行政卡片按右鍵可複製，切換日期後於行政欄按右鍵貼上。同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '可為任何教練排課；行政時段僅管理員可編輯。課程卡片末端顯示新增者。'}</div>`;
+  html += `<div class="rs-permission-note">${isAdmin() ? `管理員：拖曳行政卡片上下邊框可調整時間；行政時段與教練課皆可右鍵複製，切換日期後按右鍵貼上。同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '可為任何教練排課；行政時段僅管理員可編輯。教練課可右鍵複製，切換日期後按右鍵貼上。課程卡片末端顯示新增者。'}</div>`;
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
   for (let slot = 0; slot < SLOTS_PER_DAY; slot++) {
     html += `<tr class="${slot % 4 === 0 ? 'hour' : ''}"><td class="time">${slotToTime(slot)}</td>`;
@@ -1358,6 +1428,7 @@ function renderDayView(main) {
   }));
   attachAdminResize(main, dayBookings, dateKey);
   attachAdminClipboard(main, dayBookings, dateKey);
+  attachCoachClipboard(main, dayBookings, dateKey);
   $('[data-toggle-closed-day]', main)?.addEventListener('click', () => toggleClosedDay(dateKey));
 }
 function buildModal(mode, booking, space, slot, dateKey) {

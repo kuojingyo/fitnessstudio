@@ -976,6 +976,60 @@ test('一般教練課不可透過行政右鍵功能貼上', () => {
   assert.equal(result, null);
 });
 
+test('跨日期貼上教練課會建立新 id 並只複製可排課欄位', () => {
+  const source = {
+    id: 'source-coach',
+    date: '2026-08-14',
+    space: 2,
+    owner: '其他',
+    nickname: '體驗學員',
+    kind: 'coach',
+    time: '10:00',
+    duration: 75,
+    remark: '體驗課',
+    createdAt: 100,
+    groupId: 'must-not-copy',
+    serverOnly: 'must-not-copy',
+    createdBy: '原始建立者',
+  };
+
+  const result = bookingTransactionModule.buildCoachBookingPaste({
+    source,
+    targetDate: '2026-08-15',
+    id: 'new-coach',
+    createdAt: 200,
+    createdBy: '王教練',
+  });
+
+  const booking = {
+    id: 'new-coach',
+    date: '2026-08-15',
+    space: 2,
+    owner: '其他',
+    nickname: '體驗學員',
+    kind: 'coach',
+    time: '10:00',
+    duration: 75,
+    remark: '體驗課',
+    createdAt: 200,
+    createdBy: '王教練',
+  };
+  assert.deepEqual(result, {
+    booking,
+    mutation: buildDateBookingMutation({ mode: 'create', records: [booking] }),
+  });
+});
+
+test('教練課貼上拒絕不合條件的來源', () => {
+  const build = options => bookingTransactionModule.buildCoachBookingPaste({ createdAt: 200, ...options });
+
+  assert.equal(build({ source: adminBooking('source-admin'), targetDate: '2026-08-15', id: 'new-coach' }), null, '行政來源不得用教練課貼上');
+  assert.equal(build({ source: regularBooking('source-team', 7, '史昕銓', '10:00', 75, { kind: 'team' }), targetDate: '2026-08-15', id: 'new-coach' }), null, '團課不得用教練課貼上');
+  assert.equal(build({ source: regularBooking('source-coach', 2, '史昕銓', '10:00'), targetDate: '2026-08-13', id: 'new-coach' }), null, '同日期不得貼上');
+  assert.equal(build({ source: null, targetDate: '2026-08-15', id: 'new-coach' }), null);
+  assert.equal(build({ source: regularBooking('source-coach', 2, '史昕銓', '10:00'), targetDate: '2026-08-15', id: null }), null, '缺少新 id 不得建立');
+});
+
 test('行政貼上缺少新 id 時不得建立字面值 null 的排課', () => {
   const result = bookingTransactionModule.buildAdminBookingPaste({
     source: adminBooking('source-admin'),

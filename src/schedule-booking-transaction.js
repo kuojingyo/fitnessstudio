@@ -331,6 +331,43 @@ export function buildAdminBookingPaste({ source, targetDate, id, createdAt = Dat
   };
 }
 
+export function buildCoachBookingPaste({ source, targetDate, id, createdAt = Date.now(), createdBy = '' }) {
+  const destinationDate = String(targetDate ?? '').trim();
+  const sourceOwner = normalizedOwner(source?.owner);
+  const sourceNickname = typeof source?.nickname === 'string' ? source.nickname.trim() : '';
+  const sourceDuration = bookingDurationNumber(source?.duration);
+  const sourceSpace = bookingSpaceNumber(source?.space);
+  if (!source || typeof source !== 'object'
+    || !isSafeBookingId(id)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(destinationDate)
+    || !sourceSpace || sourceSpace === ADMIN_SPACE
+    || typeof sourceOwner !== 'string'
+    || !sourceOwner.trim()
+    || !isSchedulableBookingOwner(sourceOwner)
+    || (sourceOwner === OTHER_OWNER && !sourceNickname)
+    || sourceDuration == null
+    || normalizedKind(source) !== 'coach'
+    || String(source.date ?? '').trim() === destinationDate) return null;
+  const operator = String(createdBy ?? '').trim();
+  const booking = {
+    id: String(id),
+    date: destinationDate,
+    space: sourceSpace,
+    owner: sourceOwner.trim(),
+    kind: 'coach',
+    time: String(source.time).trim(),
+    duration: sourceDuration,
+    createdAt,
+  };
+  if (sourceNickname) booking.nickname = sourceNickname;
+  if (source.remark) booking.remark = String(source.remark);
+  if (operator) booking.createdBy = operator;
+  return {
+    booking,
+    mutation: buildDateBookingMutation({ mode: 'create', records: [booking] }),
+  };
+}
+
 function draftBlindTo(booking, target) {
   return booking?.draft === true && target?.draft !== true;
 }
