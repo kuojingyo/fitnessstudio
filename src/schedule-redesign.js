@@ -852,8 +852,8 @@ function renderCurrentView() {
   else if (currentView === 'month') renderMonthView(main);
   else renderDayView(main);
 }
-function renderToolbar(title, subtitle) {
-  return `<div class="rs-toolbar"><div><div class="rs-toolbar-title">${title}</div><div class="rs-toolbar-sub">${subtitle}</div></div><div class="rs-date-nav"><button type="button" data-nav="-1">◀ 上一個</button><span class="rs-date-title">${currentView === 'month' ? `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月` : formatDateCN(currentDate)}</span><button type="button" data-nav="1">下一個 ▶</button><button type="button" data-today="1">今天</button></div></div>`;
+function renderToolbar(title, subtitle, actions = '') {
+  return `<div class="rs-toolbar"><div><div class="rs-toolbar-title">${title}</div><div class="rs-toolbar-sub">${subtitle}</div></div><div class="rs-date-nav"><button type="button" data-nav="-1">◀ 上一個</button><span class="rs-date-title">${currentView === 'month' ? `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月` : formatDateCN(currentDate)}</span><button type="button" data-nav="1">下一個 ▶</button><button type="button" data-today="1">今天</button>${actions}</div></div>`;
 }
 
 function renderInboxView(main) {
@@ -931,7 +931,7 @@ function renderMonthView(main) {
   const first = new Date(year, month, 1), last = new Date(year, month + 1, 0);
   let html = renderToolbar('教練月檢視', '查看所有教練與場租人員的排課概況');
   if (isAdmin()) html += '<div class="rs-permission-note">管理員：在行政排班項目上按右鍵可複製，於其他日期的格子按右鍵可貼上。同一時間最多 3 位教練。</div>';
-  if (isBossManager()) html += '<div class="rs-permission-note">老闆：在日期上按右鍵可設定／解除休館日。休館日當天所有人無法排課，月曆以紅色顯示。</div>';
+  if (isBossManager()) html += '<div class="rs-permission-note">老闆：點進日期（日檢視）後，可用右上角「設定為休館日」按鈕設定／解除休館日。休館日當天所有人無法排課，月曆以紅色顯示。</div>';
   html += '<div class="rs-month-grid">' + ['日', '一', '二', '三', '四', '五', '六'].map(day => `<div class="rs-weekday">${day}</div>`).join('') + '</div>';
   html += '<div class="rs-month-grid" id="rs-month-days">';
   for (let i = first.getDay() - 1; i >= 0; i--) html += monthDayHtml(new Date(year, month, -i), true);
@@ -948,14 +948,6 @@ function renderMonthView(main) {
     else { currentDate = parseDate(key); selectedDateKey = key; $$('.rs-month-day.selected', main).forEach(item => item.classList.remove('selected')); day.classList.add('selected'); }
   }));
   renderStats($('#rs-stats', main), year, month);
-  if (isBossManager()) {
-    $$('.rs-month-day[data-date]', main).forEach(day => {
-      day.addEventListener('contextmenu', event => {
-        event.preventDefault();
-        toggleClosedDay(day.dataset.date);
-      });
-    });
-  }
 }
 function creatorNoteHtml(booking) {
   return booking?.createdBy ? `<div class="rs-creator">由 ${escapeHtml(booking.createdBy)} 加入</div>` : '';
@@ -1331,7 +1323,8 @@ function renderDayView(main) {
   const dayBookings = allBookingsForDate(dateKey);
   const bookingIndex = buildDayBookingIndex(dayBookings, SLOTS_PER_DAY);
   const dayClosed = isDateClosed(dateKey);
-  let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表${dayClosed ? ' · 🔴 休館日' : ''}`);
+  let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表${dayClosed ? ' · 🔴 休館日' : ''}`,
+    isBossManager() ? `<button type="button" data-toggle-closed-day="${dateKey}">${dayClosed ? '解除休館日' : '設定為休館日'}</button>` : '');
   if (dayClosed) html += '<div class="rs-permission-note rs-closed-banner">🔴 本日為休館日，無法新增或修改排課。</div>';
   html += `<div class="rs-permission-note">${isAdmin() ? `管理員：拖曳行政卡片上下邊框可調整時間；在行政卡片按右鍵可複製，切換日期後於行政欄按右鍵貼上。同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '可為任何教練排課；行政時段僅管理員可編輯。課程卡片末端顯示新增者。'}</div>`;
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
@@ -1365,6 +1358,7 @@ function renderDayView(main) {
   }));
   attachAdminResize(main, dayBookings, dateKey);
   attachAdminClipboard(main, dayBookings, dateKey);
+  $('[data-toggle-closed-day]', main)?.addEventListener('click', () => toggleClosedDay(dateKey));
 }
 function buildModal(mode, booking, space, slot, dateKey) {
   const editing = mode === 'edit';
