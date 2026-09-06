@@ -116,7 +116,6 @@
 .rs-day-item.pan { background:#E7D2C1; color:#5A3825; }
 .rs-day-item.shi { background:#FCE8E7; color:#7B3836; }
 .rs-day-empty { color:#A0968B; font-size:.66rem; margin-top:.5rem; }
-.rs-day-item .rs-creator { font-size:.6rem; opacity:.75; margin-top:.1rem; }
 .rs-stats { margin-top:1rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:.7rem; }
 .rs-stat-card { background:var(--rs-white); border:1px solid var(--rs-border); border-radius:9px; padding:.8rem; }
 .rs-stat-card h3 { font-size:.83rem; margin-bottom:.5rem; }

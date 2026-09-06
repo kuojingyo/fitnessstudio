@@ -1001,7 +1001,7 @@ function monthDayHtml(date, other) {
   const items = closed ? [] : (other ? [] : monthBookingsForUser(key));
   const content = closed
     ? '<div class="rs-closed-note">休館日</div>'
-    : (items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${escapeHtml(ownerLabel(b))}｜${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}${creatorNoteHtml(b)}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : ''));
+    : (items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${escapeHtml(ownerLabel(b))}｜${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : ''));
   return `<div class="${classes.join(' ')}" data-date="${key}"><div class="rs-day-number">${date.getDate()}</div>${content}</div>`;
 }
 function statsForOwner(owner, year, month) {
