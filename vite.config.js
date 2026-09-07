@@ -9,6 +9,8 @@ export default defineConfig({
       input: {
               main: resolve(__dirname, 'index.html'),
               gallery: resolve(__dirname, 'gallery.html'),
+              trial: resolve(__dirname, 'trial.html'),
+              privacy: resolve(__dirname, 'privacy.html'),
               schedule: resolve(__dirname, 'schedule.html'),
             },
     },
