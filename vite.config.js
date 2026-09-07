@@ -10,6 +10,7 @@ export default defineConfig({
               main: resolve(__dirname, 'index.html'),
               gallery: resolve(__dirname, 'gallery.html'),
               trial: resolve(__dirname, 'trial.html'),
+              personal_training: resolve(__dirname, 'personal-training.html'),
               privacy: resolve(__dirname, 'privacy.html'),
               schedule: resolve(__dirname, 'schedule.html'),
             },
