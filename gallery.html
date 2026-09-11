@@ -75,6 +75,7 @@
       </div>
     </header>
 
+    <main>
     <!-- 空間相簿（一次一張，滑動／箭頭翻頁） -->
     <section class="bg-oatmeal/60 pt-12 pb-20 md:pt-16 md:pb-24 px-6 md:px-8">
       <div class="reveal max-w-3xl mx-auto text-center space-y-6 pb-8 md:pb-12">
@@ -218,17 +219,17 @@
           </div>
 
           <button type="button" data-carousel-prev aria-label="上一張"
-                  class="absolute left-2 md:-left-5 top-1/2 -translate-y-1/2 w-10 h-10 md:w-11 md:h-11 rounded-full bg-walnut/75 hover:bg-walnut text-oatmeal flex items-center justify-center backdrop-blur transition-colors duration-300 shadow-md">
+                  class="absolute left-2 md:-left-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-walnut/75 hover:bg-walnut text-oatmeal flex items-center justify-center backdrop-blur transition-colors duration-300 shadow-md">
             <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
           </button>
           <button type="button" data-carousel-next aria-label="下一張"
-                  class="absolute right-2 md:-right-5 top-1/2 -translate-y-1/2 w-10 h-10 md:w-11 md:h-11 rounded-full bg-walnut/75 hover:bg-walnut text-oatmeal flex items-center justify-center backdrop-blur transition-colors duration-300 shadow-md">
+                  class="absolute right-2 md:-right-5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-walnut/75 hover:bg-walnut text-oatmeal flex items-center justify-center backdrop-blur transition-colors duration-300 shadow-md">
             <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
           </button>
         </div>
 
         <div class="flex items-center justify-center gap-4 pt-5">
-          <div id="carousel-dots" class="flex items-center gap-2">
+          <div id="carousel-dots" class="flex items-center gap-1">
           <button type="button" data-go="0" aria-label="第 1 張：訓練區全景：木質格柵天花、鏡牆與訓練器材" class="carousel-dot w-1.5 h-1.5 rounded-full bg-sage transition-colors duration-300"></button>
           <button type="button" data-go="1" aria-label="第 2 張：訓練區另一角度：啞鈴架、訓練椅與鏡牆展開的空間" class="carousel-dot w-1.5 h-1.5 rounded-full bg-taupe/30 transition-colors duration-300"></button>
           <button type="button" data-go="2" aria-label="第 3 張：鏡牆訓練空間與腿部訓練機，可即時檢視動作" class="carousel-dot w-1.5 h-1.5 rounded-full bg-taupe/30 transition-colors duration-300"></button>
@@ -251,16 +252,9 @@
           想親自看看空間、確認訓練方式適不適合你？<br />
           第一次可以從 75 分鐘免費體驗課開始（60 分鐘訓練＋15 分鐘方案說明）。
         </p>
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-x-8 gap-y-4 pt-2">
-          <a href="/trial.html" class="group inline-flex items-center space-x-2 text-taupe hover:text-sage transition-colors duration-500">
-            <span class="text-[11px] md:text-xs font-sans tracking-[0.3em] uppercase">預約免費體驗課</span>
-          </a>
-          <a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer" class="group inline-flex items-center space-x-2 text-taupe hover:text-sage transition-colors duration-500">
-            <span class="text-[11px] md:text-xs font-sans tracking-[0.3em] uppercase">用 LINE 詢問</span>
-          </a>
-          <a href="/personal-training.html" class="group inline-flex items-center space-x-2 text-taupe hover:text-sage transition-colors duration-500">
-            <span class="text-[11px] md:text-xs font-sans tracking-[0.3em] uppercase">一對一課程內容</span>
-          </a>
+        <div class="hero-actions pt-2">
+          <a href="/trial.html" class="button-primary">了解免費體驗</a>
+          <a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer" class="button-secondary">LINE 詢問</a>
         </div>
       </div>
     </section>
@@ -276,6 +270,10 @@
       .carousel-spacer{flex:0 0 auto;width:calc((100% - var(--slide-w)) / 2 - var(--gap))}
       @media (min-width:768px){#carousel-track{--slide-w:52%;--gap:16px;--tilt:8deg;--near:.86;--far:.74;--dim-near:.9;--dim-far:.5;--shift:0}}
       .carousel-slide{width:var(--slide-w);transition:transform .17s cubic-bezier(.22,.61,.36,1),opacity .17s ease;will-change:transform}
+      #carousel-dots{gap:.25rem;flex-wrap:wrap}
+      .carousel-dot{flex:0 0 1.5rem;width:1.5rem!important;height:2.75rem!important;background:transparent!important;display:grid;place-items:center}
+      .carousel-dot::after{content:"";width:.375rem;height:.375rem;border-radius:999px;background:rgba(74,60,52,.3);transition:transform .2s ease,background-color .2s ease}
+      .carousel-dot.bg-sage::after{background:#445447;transform:scale(1.25)}
       @media (prefers-reduced-motion: reduce){.carousel-slide{transition:none}}
     </style>
     <script>
@@ -311,6 +309,7 @@
           dots.forEach(function (d, k) {
             d.classList.toggle('bg-sage', k === i);
             d.classList.toggle('bg-taupe/30', k !== i);
+            d.setAttribute('aria-current', k === i ? 'true' : 'false');
           });
           layout(i);
         }
@@ -330,6 +329,8 @@
         render();
       })();
     </script>
+
+    </main>
 
     <!-- 共用頁尾 -->
     <footer class="site-footer">
