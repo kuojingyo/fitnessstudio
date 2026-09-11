@@ -39,6 +39,7 @@
       gtag('js', new Date());
       gtag('config', 'G-G1WBW50XF1', { anonymize_ip: true });
     </script>
+    <script>document.documentElement.classList.add('js-reveal');</script>
     <link rel="stylesheet" href="/src/style.css">
     <noscript><style>.reveal { opacity: 1 !important; transform: none !important; }</style></noscript>
     <script type="application/ld+json">
@@ -87,25 +88,35 @@
   </head>
   <body class="text-walnut min-h-screen relative w-full bg-oatmeal pt-16">
 
-    <!-- 頂部固定導覽列 (Pinned Top Header) -->
-    <header class="fixed top-0 left-0 w-full h-16 bg-walnut z-50 border-b border-white/5 shadow-sm flex items-center justify-between px-6 md:px-12 select-none">
-      <!-- 左側：品牌字樣 (僅在 md 及以上螢幕顯示，維持手機簡潔) -->
-      <a href="#hero" class="hidden md:block font-serif text-sm tracking-[0.3em] uppercase text-oatmeal hover:text-sage transition-colors">
-        RELIFE Fitness
-      </a>
-      
-      <!-- 右側/置中：五大導覽按鈕 (手機上置中) -->
-      <nav class="flex items-center justify-center space-x-1.5 sm:space-x-6 w-full md:w-auto" aria-label="主導覽列">
-        <a href="#hero" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">首頁</a>
-        <span class="w-[1px] h-3 bg-white/10"></span>
-        <a href="#philosophy" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">理念</a>
-        <span class="w-[1px] h-3 bg-white/10"></span>
-        <a href="#sanctuary" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">空間</a>
-        <span class="w-[1px] h-3 bg-white/10"></span>
-        <a href="#coach" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">教練</a>
-        <span class="w-[1px] h-3 bg-white/10"></span>
-        <a href="#location" class="text-xs font-serif text-oatmeal/85 hover:text-white transition-colors tracking-[0.2em] px-2.5 py-1.5 rounded">地址</a>
-      </nav>
+    <!-- 共用主導覽 -->
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="site-brand" href="/" aria-label="RELIFE Fitness 賦活運動首頁" aria-current="page">
+          <span class="site-brand-word">RELIFE</span>
+          <span class="site-brand-sub">賦活運動</span>
+        </a>
+        <nav class="site-nav" aria-label="主導覽列">
+          <a href="/personal-training.html">一對一教練</a>
+          <a href="/gallery.html">空間相簿</a>
+          <a href="/#coach">教練</a>
+          <a href="/#location">交通位置</a>
+        </nav>
+        <a class="site-header-cta" href="/trial.html">免費體驗</a>
+        <details class="site-mobile-menu">
+          <summary aria-label="開啟網站選單">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </summary>
+          <nav class="site-mobile-menu-panel" aria-label="手機版主導覽列">
+            <a href="/" aria-current="page">首頁</a>
+            <a href="/personal-training.html">一對一教練</a>
+            <a href="/gallery.html">空間相簿</a>
+            <a href="/trial.html">75 分鐘免費體驗</a>
+            <a href="/#coach">教練介紹</a>
+            <a href="/#location">交通位置</a>
+            <a class="mobile-line-link" href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer">LINE 詢問</a>
+          </nav>
+        </details>
+      </div>
     </header>
 
     <div id="hero" class="relative min-h-screen bg-cover bg-center flex items-center justify-center overflow-hidden" style="background-image: url('/NEW.jpg');">
@@ -113,35 +124,28 @@
       <div class="absolute inset-0 bg-oatmeal/45 mix-blend-normal"></div>
       <div class="absolute inset-0 bg-walnut/1 mix-blend-multiply"></div>
 
-      <main class="relative z-10 max-w-7xl w-full mx-auto px-6 py-24 flex items-center justify-center text-center">
-        <div class="reveal bg-oatmeal/90 px-8 sm:px-16 py-12 sm:py-20 rounded-[2.5rem] max-w-4xl space-y-10 shadow-[0_20px_50px_rgba(44,34,30,0.08)] border border-white/20">
-          
-          <div class="space-y-6">
-            <p class="text-sage font-medium tracking-[0.25em] text-sm uppercase">RELIFE, Live a Better Life</p>
-<!-- 1. 品牌首頁大標題 (高定文案、完美兩行版) -->
-<!-- 微調重點：利用 flex-col 確保兩行字在任何螢幕下都絕對置中、不紊亂，並在手機端調精緻，電腦端放開氣場 -->
-            <h1 class="text-2xl sm:text-4xl md:text-5xl lg:text-6xl tracking-[0.15em] md:tracking-[0.2em] text-walnut flex flex-col items-center">
+      <main class="relative z-10 max-w-7xl w-full mx-auto px-6 py-20 flex items-center justify-center text-center">
+        <div class="reveal bg-oatmeal/92 px-7 sm:px-14 py-10 sm:py-14 rounded-[2rem] max-w-3xl space-y-7 shadow-[0_20px_55px_rgba(44,34,30,0.10)] border border-white/30">
+          <div class="space-y-5">
+            <p class="text-sage font-medium tracking-[0.22em] text-xs sm:text-sm uppercase">楠梓右昌・預約制一對一健身</p>
+            <h1 class="text-3xl sm:text-4xl md:text-5xl tracking-[0.14em] text-walnut flex flex-col items-center">
               <span class="font-brand">賦活運動</span>
-  <span class="mt-3 md:mt-5 text-sm sm:text-base md:text-lg lg:text-xl font-sans text-taupe tracking-[0.3em] uppercase font-light">
-    賦予生活的新定義
-  </span>
+              <span class="mt-3 text-sm sm:text-base font-sans text-taupe tracking-[0.24em] font-light">賦予生活的新定義</span>
             </h1>
           </div>
-        
-          <div class="pt-4">
-  <a href="https://lin.ee/qw6EHwd"
-     target="_blank"
-     rel="noopener noreferrer" 
-     class="inline-block bg-sage text-white px-14 py-4 rounded-full font-medium tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-sage/20" aria-label="預約專屬體驗">
-    預約專屬體驗
-  </a>
-</div>
-
+          <p class="mx-auto max-w-[30em] text-sm sm:text-base text-taupe/80 font-sans tracking-wide leading-relaxed">
+            教練全程陪你訓練，從身體狀況與目標出發，找到能長久持續的節奏。
+          </p>
+          <div class="hero-actions pt-1">
+            <a href="/trial.html" class="button-primary">75 分鐘免費體驗</a>
+            <a href="/personal-training.html" class="button-secondary">了解一對一教練</a>
+          </div>
+          <p class="text-[11px] text-taupe/55 font-sans tracking-[0.12em]">無需先購買方案・初次體驗全程免費</p>
         </div>
       </main>
     </div>
 
-    <section id="philosophy" class="scroll-mt-0 bg-oatmeal py-44 px-8 flex flex-col items-center justify-center text-center">
+    <section id="philosophy" class="scroll-mt-20 bg-oatmeal py-28 md:py-36 px-6 md:px-8 flex flex-col items-center justify-center text-center">
   <div class="reveal max-w-5xl mx-auto space-y-12">
 
     <div class="flex flex-col items-center space-y-6">
@@ -167,77 +171,50 @@
 
   </div>
 </section>
-    <!-- 2.5 一對一服務區塊 (Service Section) -->
-    <section id="service" class="scroll-mt-0 bg-oatmeal py-24 md:py-36 px-6 md:px-8 border-t border-taupe/10">
-      <div class="reveal max-w-5xl mx-auto space-y-16">
-
-        <div class="text-center space-y-3 md:space-y-4">
-          <p class="text-sage font-medium tracking-[0.25em] text-[11px] sm:text-xs uppercase">One-on-One Training</p>
-          <h3 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">一對一教練課</h3>
-        </div>
-
-        <div class="text-center space-y-4 text-taupe font-sans text-sm md:text-base tracking-wide leading-loose">
-          <p>
-            RELIFE 賦活運動是高雄市楠梓區右昌的一對一健身工作室。<br />
-            每一堂課都由教練在場帶領——不是自由入場，也沒有擁擠的人潮。<br />
-            訓練內容依你的目標與目前運動經驗安排。
+    <!-- 一對一服務入口 -->
+    <section id="service" class="scroll-mt-16 bg-oatmeal py-20 md:py-28 px-6 md:px-8 border-t border-taupe/10">
+      <div class="reveal max-w-6xl mx-auto space-y-12 md:space-y-14">
+        <div class="text-center space-y-4">
+          <p class="text-sage font-medium tracking-[0.24em] text-[11px] sm:text-xs uppercase">One-on-One Training</p>
+          <h2 class="text-2xl md:text-4xl font-serif text-walnut tracking-wide">把注意力，完整留給你</h2>
+          <p class="mx-auto max-w-[30em] text-sm md:text-base text-taupe font-sans tracking-wide leading-relaxed">
+            RELIFE 是楠梓右昌的預約制一對一健身工作室。這裡沒有自由入場的人潮，每堂課都由教練在場帶領。
           </p>
         </div>
-
-        <div class="space-y-6">
-          <h4 class="text-center text-sm md:text-base font-sans text-walnut font-medium tracking-[0.2em]">一對一如何開始</h4>
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 md:gap-6 text-left">
-            <div class="bg-oatmeal/40 border border-taupe/10 p-6 rounded-xl space-y-3">
-              <span class="text-[10px] md:text-xs font-sans text-sage tracking-[0.25em] uppercase">Step 1</span>
-              <p class="text-walnut font-medium font-sans text-sm md:text-base">透過官方 LINE 預約</p>
-              <p class="text-xs text-taupe leading-relaxed font-sans">告訴我們你的目標與方便的時間。</p>
-            </div>
-            <div class="bg-oatmeal/40 border border-taupe/10 p-6 rounded-xl space-y-3">
-              <span class="text-[10px] md:text-xs font-sans text-sage tracking-[0.25em] uppercase">Step 2</span>
-              <p class="text-walnut font-medium font-sans text-sm md:text-base">InBody 身體組成分析</p>
-              <p class="text-xs text-taupe leading-relaxed font-sans">了解目前的身體組成與起點，再依結果安排訓練。</p>
-            </div>
-            <div class="bg-oatmeal/40 border border-taupe/10 p-6 rounded-xl space-y-3">
-              <span class="text-[10px] md:text-xs font-sans text-sage tracking-[0.25em] uppercase">Step 3</span>
-              <p class="text-walnut font-medium font-sans text-sm md:text-base">60 分鐘一對一訓練</p>
-              <p class="text-xs text-taupe leading-relaxed font-sans">依你的目標與目前體能安排的訓練內容。</p>
-            </div>
-            <div class="bg-oatmeal/40 border border-taupe/10 p-6 rounded-xl space-y-3">
-              <span class="text-[10px] md:text-xs font-sans text-sage tracking-[0.25em] uppercase">Step 4</span>
-              <p class="text-walnut font-medium font-sans text-sm md:text-base">15 分鐘方案說明</p>
-              <p class="text-xs text-taupe leading-relaxed font-sans">了解後續訓練安排，再由你決定要不要繼續。</p>
-            </div>
-          </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+          <article class="bg-white/45 border border-taupe/10 p-7 md:p-8 rounded-2xl space-y-4">
+            <p class="text-[10px] text-sage font-sans tracking-[0.22em] uppercase">01・專注</p>
+            <h3 class="text-lg font-serif text-walnut tracking-wide">全程一對一</h3>
+            <p class="text-sm text-taupe leading-relaxed font-sans">教練陪你完成每個動作，依當天狀況調整節奏與強度。</p>
+          </article>
+          <article class="bg-white/45 border border-taupe/10 p-7 md:p-8 rounded-2xl space-y-4">
+            <p class="text-[10px] text-sage font-sans tracking-[0.22em] uppercase">02・起點</p>
+            <h3 class="text-lg font-serif text-walnut tracking-wide">從你的狀況出發</h3>
+            <p class="text-sm text-taupe leading-relaxed font-sans">先了解目標、運動經驗與身體組成，再安排真正適合你的內容。</p>
+          </article>
+          <article class="bg-white/45 border border-taupe/10 p-7 md:p-8 rounded-2xl space-y-4">
+            <p class="text-[10px] text-sage font-sans tracking-[0.22em] uppercase">03・空間</p>
+            <h3 class="text-lg font-serif text-walnut tracking-wide">安靜、自在、預約制</h3>
+            <p class="text-sm text-taupe leading-relaxed font-sans">避開大型健身房的擁擠與音量，把注意力放回自己的訓練。</p>
+          </article>
         </div>
-
-        <div class="max-w-3xl mx-auto space-y-5">
-          <h4 class="text-center text-sm md:text-base font-sans text-walnut font-medium tracking-[0.2em]">這裡適合誰</h4>
-          <ul class="space-y-3 text-taupe font-sans text-sm md:text-base tracking-wide leading-relaxed">
-            <li class="flex items-start space-x-3"><span class="mt-2.5 inline-block w-1.5 h-1.5 bg-sage rounded-full flex-none"></span><span>完全沒有運動經驗，希望教練從零開始帶領</span></li>
-            <li class="flex items-start space-x-3"><span class="mt-2.5 inline-block w-1.5 h-1.5 bg-sage rounded-full flex-none"></span><span>不喜歡大型健身房的人潮與音量，想要安靜自在的環境</span></li>
-            <li class="flex items-start space-x-3"><span class="mt-2.5 inline-block w-1.5 h-1.5 bg-sage rounded-full flex-none"></span><span>想知道每個動作「怎麼做、為什麼這樣練」</span></li>
-            <li class="flex items-start space-x-3"><span class="mt-2.5 inline-block w-1.5 h-1.5 bg-sage rounded-full flex-none"></span><span>想建立肌力與增進日常活動能力</span></li>
-            <li class="flex items-start space-x-3"><span class="mt-2.5 inline-block w-1.5 h-1.5 bg-sage rounded-full flex-none"></span><span>重視隱私與安心的學員</span></li>
-          </ul>
+        <div class="hero-actions">
+          <a href="/personal-training.html" class="button-primary">認識一對一教練課</a>
+          <a href="/trial.html" class="button-secondary">查看免費體驗流程</a>
         </div>
-
-        <div class="text-center pt-2">
-          <a href="/personal-training.html" class="inline-block border border-sage text-sage px-10 py-3 rounded-full text-sm font-medium tracking-widest hover:bg-sage hover:text-white transition-all" aria-label="了解更多一對一服務">了解更多一對一服務</a>
-        </div>
-
       </div>
     </section>
 
     <!-- 3. 健身房外觀與空間區塊 (Studio Space Section) -->
-      <section id="sanctuary" class="scroll-mt-0 bg-oatmeal/60 py-24 md:py-36 px-6 md:px-8 border-t border-taupe/10">
-  <div class="reveal max-w-7xl mx-auto space-y-24 md:space-y-32">
+      <section id="sanctuary" class="scroll-mt-20 bg-oatmeal/60 py-20 md:py-28 px-6 md:px-8 border-t border-taupe/10">
+  <div class="reveal max-w-7xl mx-auto space-y-12 md:space-y-16">
     
     <div class="text-center space-y-3 md:space-y-4">
       <p class="text-sage font-medium tracking-[0.25em] text-[11px] sm:text-xs uppercase">The Sanctuary</p>
-      <h3 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">隱於都市的靜謐空間</h3>
+      <h2 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">隱於都市的靜謐空間</h2>
     </div>
 
-    <!-- 空間第一排：大廳 & 更衣空間 (舊版排版) -->
+    <!-- 首頁只保留兩張代表照片，完整相簿另頁瀏覽 -->
     <div class="grid grid-cols-1 md:grid-cols-12 gap-y-14 md:gap-8 lg:gap-16 items-center">
       
       <!-- 左側：接待大廳 (大圖) -->
@@ -286,47 +263,10 @@
 
     </div>
 
-    <!-- 空間第二排：休息室 & 訓練區 (交錯排版，往下滾動可見) -->
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-y-14 md:gap-8 lg:gap-16 items-center">
-      
-      <!-- 左側：休憩交流區 (方圖) -->
-      <div class="md:col-span-5 space-y-10 md:space-y-12 md:pr-8 lg:pr-12 text-left order-2 md:order-1">
-        <div class="max-w-[80%] md:max-w-[85%] mr-auto space-y-3 group">
-          <div class="aspect-[1/1] bg-walnut/5 rounded-[1.5rem] overflow-hidden relative border border-walnut/5 shadow-sm">
-            <img src="/REST.jpg" 
-                 alt="RELIFE Fitness 休憩交流區" loading="lazy" decoding="async"
-                 width="1024" height="577"
-                 class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03] filter brightness-[0.97]" />
-            <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-          </div>
-          <p class="text-[10px] md:text-[11px] text-taupe/70 font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
-            <span class="inline-block w-1 h-1 bg-taupe/40 rounded-full"></span>
-            <span>Lounge Area</span>
-          </p>
-        </div>
-      </div>
-
-      <!-- 右側：訓練與放鬆區 (大圖) -->
-      <div class="md:col-span-7 space-y-4 group order-1 md:order-2">
-        <div class="aspect-[4/3] bg-walnut/5 rounded-[2rem] overflow-hidden relative border border-walnut/5 shadow-sm">
-          <img src="/BED.jpg" 
-               alt="RELIFE Fitness 訓練與放鬆區" loading="lazy" decoding="async"
-               width="1024" height="582"
-               class="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02] filter brightness-[0.98]" />
-          <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-        </div>
-        <p class="text-[10px] md:text-[11px] text-taupe font-sans tracking-[0.3em] uppercase pl-2 flex items-center space-x-2">
-          <span class="inline-block w-1.5 h-1.5 bg-sage rounded-full opacity-60"></span>
-          <span>Training &amp; Recovery</span>
-        </p>
-      </div>
-
-    </div>
-
   </div>
 
     <!-- MORE：探索更多空間照片 -->
-    <div class="reveal max-w-7xl mx-auto mt-24 md:mt-32 pt-16 text-center">
+    <div class="reveal max-w-7xl mx-auto mt-16 md:mt-24 pt-12 text-center">
       <a href="/gallery.html" 
          class="group inline-flex items-center space-x-5 text-taupe/60 hover:text-sage transition-colors duration-700">
         <span class="w-6 h-[1px] bg-taupe/25 group-hover:bg-sage/40 group-hover:w-10 transition-all duration-700"></span>
@@ -341,12 +281,12 @@
 </section>
 
     <!-- 4. 教練介紹區塊 (Coach Section) -->
-    <section id="coach" class="scroll-mt-0 bg-oatmeal py-24 md:py-36 px-6 md:px-8 border-t border-taupe/10">
+    <section id="coach" class="scroll-mt-20 bg-oatmeal py-20 md:py-28 px-6 md:px-8 border-t border-taupe/10">
       <div class="reveal max-w-7xl mx-auto space-y-16 md:space-y-20">
         
         <div class="text-center space-y-3 md:space-y-4">
           <p class="text-sage font-medium tracking-[0.25em] text-[11px] sm:text-xs uppercase">Professional Guide</p>
-          <h3 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">教練介紹</h3>
+          <h2 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">教練介紹</h2>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-12 gap-y-12 md:gap-8 lg:gap-16 items-center">
@@ -428,11 +368,11 @@
     </section>
 
     <!-- 4.5 免費體驗區塊 (Trial Section) -->
-    <section id="trial" class="scroll-mt-0 bg-oatmeal/60 py-24 md:py-36 px-6 md:px-8 border-t border-taupe/10">
+    <section id="trial" class="scroll-mt-20 bg-oatmeal/60 py-20 md:py-28 px-6 md:px-8 border-t border-taupe/10">
       <div class="reveal max-w-4xl mx-auto space-y-10 text-center">
         <div class="space-y-3 md:space-y-4">
           <p class="text-sage font-medium tracking-[0.25em] text-[11px] sm:text-xs uppercase">Free Trial · 75 min</p>
-          <h3 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">75 分鐘免費一對一體驗課</h3>
+          <h2 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">75 分鐘免費一對一體驗課</h2>
         </div>
         <div class="space-y-2 text-taupe font-sans text-sm md:text-base tracking-wide leading-loose">
           <p>第一次上課，可以從免費體驗開始。</p>
@@ -452,12 +392,12 @@
     </section>
 
     <!-- 5. 交通定位區塊 (Location Section) -->
-    <section id="location" class="scroll-mt-0 reveal bg-oatmeal/60 py-24 px-6 md:px-8 border-t border-taupe/10">
+    <section id="location" class="scroll-mt-20 reveal bg-oatmeal/60 py-20 md:py-28 px-6 md:px-8 border-t border-taupe/10">
       <div class="max-w-7xl mx-auto space-y-12">
         
         <div class="text-left space-y-3">
           <p class="text-sage font-medium tracking-[0.25em] text-[11px] sm:text-xs uppercase">Location</p>
-          <h3 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">交通定位</h3>
+          <h2 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">交通定位</h2>
         </div>
 
         <div class="w-full aspect-[16/9] md:aspect-[21/9] bg-walnut/5 rounded-[2rem] overflow-hidden border border-walnut/5 shadow-sm">
@@ -495,157 +435,45 @@
       </div>
     </section>
 
-    <!-- 5.5 預約前常見問題 (FAQ Section) -->
-    <section id="faq" class="scroll-mt-0 bg-oatmeal py-24 md:py-32 px-6 md:px-8 border-t border-taupe/10">
-      <div class="reveal max-w-3xl mx-auto space-y-10">
-        <div class="text-center space-y-3 md:space-y-4">
-          <p class="text-sage font-medium tracking-[0.25em] text-[11px] sm:text-xs uppercase">FAQ</p>
-          <h3 class="text-xl md:text-3xl font-serif text-walnut tracking-wide">預約前常見問題</h3>
-        </div>
-        <div class="space-y-8">
-          <div class="border-t border-taupe/10 pt-6 space-y-2">
-            <h4 class="font-sans font-medium text-walnut text-sm md:text-base">完全沒有運動經驗也可以嗎？</h4>
-            <p class="text-taupe font-sans text-sm leading-relaxed">可以。課程依個人經驗安排，第一堂會先了解你的狀況。</p>
+    <!-- 共用頁尾 -->
+    <footer class="site-footer">
+      <div class="site-footer-main">
+        <section aria-label="RELIFE Fitness 品牌資訊">
+          <a class="site-footer-brandmark" href="/">RELIFE Fitness・賦活運動</a>
+          <p class="site-footer-copy">高雄楠梓右昌的預約制一對一健身工作室。讓每一次訓練，都回到你的身體與生活。</p>
+          <div class="site-footer-actions">
+            <a href="/trial.html">了解免費體驗 →</a>
+            <a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer">LINE 詢問 →</a>
           </div>
-          <div class="border-t border-taupe/10 pt-6 space-y-2">
-            <h4 class="font-sans font-medium text-walnut text-sm md:text-base">這裡是自由入場的健身房嗎？</h4>
-            <p class="text-taupe font-sans text-sm leading-relaxed">不是。這裡的課程由教練全程一對一帶領，透過官方 LINE 預約上課時間。</p>
+        </section>
+        <nav aria-label="頁尾站內導覽">
+          <p class="site-footer-title">探索網站</p>
+          <div class="site-footer-links">
+            <a href="/">首頁</a>
+            <a href="/personal-training.html">一對一教練</a>
+            <a href="/gallery.html">空間相簿</a>
+            <a href="/trial.html">75 分鐘免費體驗</a>
+            <a href="/#coach">教練介紹</a>
           </div>
-          <div class="border-t border-taupe/10 pt-6 space-y-2">
-            <h4 class="font-sans font-medium text-walnut text-sm md:text-base">在哪裡？</h4>
-            <p class="text-taupe font-sans text-sm leading-relaxed">高雄市楠梓區右昌街751巷21號，詳細交通見上方「交通定位」。</p>
-          </div>
-          <div class="border-t border-taupe/10 pt-6 space-y-2">
-            <h4 class="font-sans font-medium text-walnut text-sm md:text-base">怎麼詢問或預約？</h4>
-            <p class="text-taupe font-sans text-sm leading-relaxed">加官方 LINE <a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer" class="text-sage underline decoration-dotted underline-offset-4">@005zxfxx</a>，或撥打 <a href="tel:073647521" class="text-sage underline decoration-dotted underline-offset-4">07-3647521</a>。</p>
-          </div>
-        </div>
-        <div class="text-center pt-4">
-          <a href="/trial.html" class="inline-block border border-sage text-sage px-10 py-3 rounded-full text-sm font-medium tracking-widest hover:bg-sage hover:text-white transition-all" aria-label="了解免費體驗課">了解免費體驗</a>
-        </div>
+        </nav>
+        <section class="site-footer-visit" aria-label="地址與聯絡資訊">
+          <p class="site-footer-title">來訪與聯絡</p>
+          <a href="https://www.google.com/maps/place/?q=place_id:ChIJu90gQOMPbjQRLUFyLKUUr_g" target="_blank" rel="noopener noreferrer">高雄市楠梓區右昌街751巷21號 ↗</a>
+          <p>週一至週六 14:00–22:00<br />週日休館</p>
+          <p><a href="tel:073647521">07-3647521</a>　<a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer">LINE @005zxfxx</a></p>
+        </section>
       </div>
-    </section>
-
-    <!-- 6. 聯絡資訊與頁尾 (Contact & Footer Section) -->
-    <footer class="bg-walnut text-oatmeal/80 py-20 px-6 md:px-8 border-t border-white/5">
-      <div class="max-w-7xl mx-auto space-y-16">
-        
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-y-12 md:gap-8 lg:gap-16">
-          
-          <!-- 左側：品牌資訊 -->
-          <div class="md:col-span-5 space-y-6">
-            <div class="space-y-3">
-              <p class="text-sage-light font-medium tracking-[0.25em] text-xs uppercase">RELIFE Fitness</p>
-              <h2 class="text-2xl font-brand text-oatmeal tracking-wider">賦活運動</h2>
-            </div>
-            <p class="text-sm tracking-widest leading-relaxed max-w-sm text-oatmeal/60 font-sans font-light">
-              聆聽身體的低語，在沉靜中重塑優雅力量。我們提供個人化的專業健身與體態矯正指導，為您打造都市中的心靈與身心蛻變之所。
-            </p>
-            
-            <!-- 統一風格社群圖標列 (LINE, IG, Threads, FB) -->
-            <div class="flex items-center space-x-3.5 pt-2" role="group" aria-label="社群媒體連結">
-              <!-- LINE -->
-              <a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer" 
-                 class="w-9 h-9 rounded-full border border-oatmeal/15 flex items-center justify-center text-oatmeal/60 hover:text-sage-light hover:border-sage-light hover:bg-white/5 transition-all duration-300 hover:scale-105" 
-                 title="官方 LINE" aria-label="官方 LINE">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M24 10.3c0-4.7-4.8-8.5-10.7-8.5S2.6 5.6 2.6 10.3c0 4.2 3.8 7.7 9 8.4.3.1.8.4.9.9v2.2s-.1.5.3.3c.3-.2 1.9-1.2 2.6-2 .7-.6 1.4-1.5 1.9-2.3 4.2-1.3 6.7-4.5 6.7-7.5zm-14.8 3H7.7c-.4 0-.7-.3-.7-.7V8.5c0-.4.3-.7.7-.7h1.5c.4 0 .7.3.7.7v4.1c0 .4-.3.7-.7.7zm2.7 0c-.4 0-.7-.3-.7-.7V8.5c0-.4.3-.7.7-.7s.7.3.7.7v4.1c0 .4-.3.7-.7.7zm4.7 0h-2.1c-.4 0-.7-.3-.7-.7V8.5c0-.4.3-.7.7-.7h2.1c.4 0 .7.3.7.7s-.3.7-.7.7h-1.4v.8h1.4c.4 0 .7.3.7.7s-.3.7-.7.7h-1.4v.8h1.4c.4 0 .7.3.7.7s-.3.7-.7.7zm3.1-.7c0 .4-.3.7-.7.7h-1.5c-.4 0-.7-.3-.7-.7V8.5c0-.4.3-.7.7-.7h1.5c.4 0 .7.3.7.7v.5c0 .4-.3.7-.7.7h-1.5v2.2h1.5c.4 0 .7.3.7.7v.5z"/>
-                </svg>
-              </a>
-              <!-- Instagram -->
-              <a href="https://www.instagram.com/relife_751_21/" target="_blank" rel="noopener noreferrer" 
-                 class="w-9 h-9 rounded-full border border-oatmeal/15 flex items-center justify-center text-oatmeal/60 hover:text-sage-light hover:border-sage-light hover:bg-white/5 transition-all duration-300 hover:scale-105" 
-                 title="Instagram" aria-label="Instagram">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/>
-                </svg>
-              </a>
-              <!-- Threads -->
-              <a href="https://www.threads.net/@relife_751_21" target="_blank" rel="noopener noreferrer" 
-                 class="w-9 h-9 rounded-full border border-oatmeal/15 flex items-center justify-center text-oatmeal/60 hover:text-sage-light hover:border-sage-light hover:bg-white/5 transition-all duration-300 hover:scale-105" 
-                 title="Threads" aria-label="Threads">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 192 192" aria-hidden="true" focusable="false">
-                  <path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 126.084 65.4397 134.508 73.775 140.011C80.8224 144.663 89.899 146.938 99.3323 146.423C111.79 145.74 121.563 140.987 128.381 132.296C133.559 125.696 136.834 117.143 138.28 106.366C144.217 109.949 148.617 114.664 151.047 120.332C155.179 129.967 155.42 145.8 142.501 158.708C131.182 170.016 117.576 174.908 97.0135 175.059C74.2042 174.89 56.9538 167.575 45.7381 153.317C35.2355 139.966 29.8077 120.682 29.6052 96C29.8077 71.3178 35.2355 52.0336 45.7381 38.6827C56.9538 24.4249 74.2039 17.11 97.0132 16.9405C119.988 17.1113 137.539 24.4614 149.184 38.788C154.894 45.8136 159.199 54.6488 162.037 64.9503L178.184 60.6422C174.744 47.9622 169.331 37.0357 161.965 27.974C147.036 9.60668 125.202 0.195148 97.0695 0H96.9569C68.8816 0.19447 47.2921 9.6418 32.7883 28.0793C19.8819 44.4864 13.2244 67.3157 13.0007 95.9325L13 96L13.0007 96.0675C13.2244 124.684 19.8819 147.514 32.7883 163.921C47.2921 182.358 68.8816 191.806 96.9569 192H97.0695C122.03 191.827 139.624 185.292 154.118 170.811C173.081 151.866 172.51 128.119 166.26 113.541C161.776 103.087 153.227 94.5962 141.537 88.9883ZM98.4405 129.507C88.0005 130.095 77.1544 125.409 76.6196 115.372C76.2232 107.93 81.9158 99.626 99.0812 98.6368C101.047 98.5234 102.976 98.468 104.871 98.468Z"/>
-                </svg>
-              </a>
-              <!-- Facebook -->
-              <a href="https://www.facebook.com/profile.php?id=61583704928387&locale=zh_TW" target="_blank" rel="noopener noreferrer" 
-                 class="w-9 h-9 rounded-full border border-oatmeal/15 flex items-center justify-center text-oatmeal/60 hover:text-sage-light hover:border-sage-light hover:bg-white/5 transition-all duration-300 hover:scale-105" 
-                 title="Facebook" aria-label="Facebook">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z"/>
-                </svg>
-              </a>
-            </div>
-          </div>
-
-          <!-- 中間：聯絡資訊 -->
-          <div class="md:col-span-4 space-y-6">
-            <h3 class="text-sm font-sans text-sage-light font-medium tracking-[0.2em] uppercase flex items-center space-x-2">
-              <span class="inline-block w-1.5 h-1.5 bg-sage-light rounded-full"></span>
-              <span>聯絡資訊 Contact</span>
-            </h3>
-            <ul class="space-y-6 font-sans text-sm tracking-widest font-light text-oatmeal/75">
-              <li class="space-y-1">
-                <span class="text-xs uppercase tracking-[0.2em] text-sage-light font-medium block">Address / 地址</span>
-                <span class="block text-oatmeal/90">高雄市楠梓區右昌街751巷21號</span>
-              </li>
-              <li class="space-y-1">
-                <span class="text-xs uppercase tracking-[0.2em] text-sage-light font-medium block">Telephone / 電話</span>
-                <a href="tel:073647521" class="block text-oatmeal/90 hover:text-sage-light transition-colors">07-3647521</a>
-              </li>
-              <li class="space-y-1">
-                <span class="text-xs uppercase tracking-[0.2em] text-sage-light font-medium block">Official Line / 官方 LINE</span>
-                <span class="block"><a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer" class="text-oatmeal/90 hover:text-sage-light transition-colors underline decoration-dotted underline-offset-4">@005zxfxx</a></span>
-              </li>
-            </ul>
-          </div>
-
-          <!-- 右側：QR Code 掃描 -->
-          <div class="md:col-span-3 flex flex-col items-center md:items-start space-y-4">
-            <h3 class="text-sm font-sans text-sage-light font-medium tracking-[0.2em] uppercase flex items-center space-x-2">
-              <span class="inline-block w-1.5 h-1.5 bg-sage-light rounded-full"></span>
-              <span>官方預約 LINE QR</span>
-            </h3>
-            <a href="https://lin.ee/qw6EHwd" target="_blank" rel="noopener noreferrer" class="block w-48 h-48 md:w-40 md:h-40 flex-none bg-white p-3 rounded-2xl shadow-lg border border-white/10 group transition-transform duration-500 hover:scale-[1.03]">
-              <img src="/line-qr.png" 
-                   alt="RELIFE Fitness 官方 LINE QR Code" loading="lazy" decoding="async"
-                   width="180" height="180"
-                   class="w-full h-full object-cover rounded-xl" />
-            </a>
-            <p class="text-[11px] text-oatmeal/40 font-sans tracking-widest">
-              點擊或掃描上方 QR code 直接預約諮詢
-            </p>
-          </div>
-
+      <div class="site-footer-bottom">
+        <p>© 2026 RELIFE Fitness. All Rights Reserved.</p>
+        <div class="site-footer-bottom-links">
+          <a href="https://www.instagram.com/relife_751_21/" target="_blank" rel="noopener noreferrer">Instagram</a>
+          <a href="https://www.threads.net/@relife_751_21" target="_blank" rel="noopener noreferrer">Threads</a>
+          <a href="https://www.facebook.com/profile.php?id=61583704928387" target="_blank" rel="noopener noreferrer">Facebook</a>
+          <a href="/privacy.html">隱私權</a>
         </div>
-
-        <!-- 底部版權宣告 -->
-        <div class="pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-oatmeal/40 font-sans tracking-widest font-light">
-          <p>© 2026 RELIFE Fitness. All Rights reserved.</p>
-          <div class="flex space-x-6">
-            <a href="/privacy.html" class="hover:text-sage transition-colors">隱私權政策</a>
-                        <a href="#" class="hover:text-sage transition-colors" aria-label="服務條款（即將推出）">服務條款</a>
-          </div>
-        </div>
-
       </div>
     </footer>
 
     <script type="module" src="/src/main.js"></script>
-  <!-- 右下角高級感懸浮預約膠囊 -->
-<!-- 視覺微調：使用 fixed 定位鎖定右下角，並加上細微的陰影與向上浮動特效 -->
-<div id="sticky-cta" class="fixed bottom-8 right-8 z-50 opacity-0 pointer-events-none translate-y-4 transition-all duration-500 ease-out">
-  <a href="https://lin.ee/qw6EHwd"
-     target="_blank"
-     rel="noopener noreferrer" 
-     class="flex items-center space-x-3 bg-sage text-white pl-6 pr-5 py-3 rounded-full font-medium tracking-widest text-xs sm:text-sm hover:scale-105 active:scale-95 hover:bg-sage/90 transition-all duration-300 shadow-[0_10px_30px_rgba(96,114,100,0.25)] border border-white/10 group" aria-label="預約體驗">
-    <span>預約體驗</span>
-    <!-- 精細裝飾箭頭：滑鼠移入時會微微往右上方挑動 2px，暗示行動引導 -->
-    <svg class="w-4 h-4 transform transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-    </svg>
-  </a>
-</div>
   </body>
 </html>

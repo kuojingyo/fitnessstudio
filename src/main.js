@@ -2,62 +2,41 @@ function initScrollReveal() {
   const reveals = document.querySelectorAll('.reveal');
   if (reveals.length === 0) return;
 
+  const revealAll = () => reveals.forEach(element => element.classList.add('active'));
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    revealAll();
+    return;
+  }
+
   if (typeof window.IntersectionObserver !== 'function') {
-    reveals.forEach(element => element.classList.add('active'));
+    revealAll();
     return;
   }
 
   const observerOptions = {
     root: null,
-    rootMargin: '0px 0px -30% 0px', // 當元素頂部滑到螢幕 70% 高度位置時觸發（相當於底邊界縮排 30%）
+    rootMargin: '0px 0px -12% 0px',
     threshold: 0,
   };
 
   const revealObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
-        // 當觸碰觸發線時，新增 .active 類別，交由 CSS 執行 3 秒的平滑過渡
         entry.target.classList.add('active');
-        observer.unobserve(entry.target); // 動畫只播放一次
+        observer.unobserve(entry.target);
       }
     });
   }, observerOptions);
 
   reveals.forEach(el => {
-    // 由於我們使用的是 CSS transition，在此要清除 JS 之前可能留下的 style 屬性
     el.style.opacity = '';
     el.style.transform = '';
     revealObserver.observe(el);
   });
-}
 
-function initStickyCta() {
-  const cta = document.getElementById('sticky-cta');
-  if (!cta) return;
-
-  let isVisible = null;
-  let framePending = false;
-
-  const update = () => {
-    const shouldShow = window.scrollY > 300;
-    if (shouldShow !== isVisible) {
-      cta.classList.toggle('opacity-100', shouldShow);
-      cta.classList.toggle('translate-y-0', shouldShow);
-      cta.classList.toggle('opacity-0', !shouldShow);
-      cta.classList.toggle('pointer-events-none', !shouldShow);
-      cta.classList.toggle('translate-y-4', !shouldShow);
-      isVisible = shouldShow;
-    }
-    framePending = false;
-  };
-
-  window.addEventListener('scroll', () => {
-    if (framePending) return;
-    framePending = true;
-    window.requestAnimationFrame(update);
-  }, { passive: true });
-
-  update();
+  // LINE 內建瀏覽器或背景分頁若延遲 IntersectionObserver，內容仍會自動顯示。
+  window.setTimeout(revealAll, 1800);
 }
 
 // P02 量測：聯絡點擊事件（GA4 dataLayer，無 cookie／不傳任何個人資料）
@@ -86,11 +65,9 @@ function initContactTracking() {
     if (!channel) return;
 
     const inHero = !!closest(link, '#hero');
-    const inSticky = link.id === 'sticky-cta' || !!closest(link, '#sticky-cta');
     const inFooter = !!closest(link, 'footer');
     let placement = 'body';
-    if (inSticky) placement = 'sticky';
-    else if (inHero) placement = 'hero';
+    if (inHero) placement = 'hero';
     else if (inFooter) placement = 'footer';
 
     window.dataLayer.push({
@@ -102,9 +79,29 @@ function initContactTracking() {
   }, { passive: true });
 }
 
+function initMobileMenu() {
+  const menu = document.querySelector('.site-mobile-menu');
+  if (!menu) return;
+
+  menu.addEventListener('click', event => {
+    if (event.target.closest('a')) menu.removeAttribute('open');
+  });
+
+  document.addEventListener('click', event => {
+    if (menu.open && !menu.contains(event.target)) menu.removeAttribute('open');
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && menu.open) {
+      menu.removeAttribute('open');
+      menu.querySelector('summary')?.focus();
+    }
+  });
+}
+
 function initPage() {
   initScrollReveal();
-  initStickyCta();
+  initMobileMenu();
   initContactTracking();
 }
 
