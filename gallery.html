@@ -261,7 +261,7 @@
       /* 頭尾留白＝(內容寬 − 這張寬)/2，扣掉 gap，讓第一張與最後一張都能真正置中 */
       .carousel-spacer{flex:0 0 auto;width:calc((100% - var(--slide-w)) / 2 - var(--gap))}
       @media (min-width:768px){#carousel-track{--slide-w:52%;--gap:16px;--tilt:8deg;--near:.86;--far:.74;--dim-near:.9;--dim-far:.5;--shift:0}}
-      .carousel-slide{width:var(--slide-w);transition:transform .5s cubic-bezier(.22,.61,.36,1),opacity .5s ease;will-change:transform}
+      .carousel-slide{width:var(--slide-w);transition:transform .17s cubic-bezier(.22,.61,.36,1),opacity .17s ease;will-change:transform}
       @media (prefers-reduced-motion: reduce){.carousel-slide{transition:none}}
     </style>
     <script>
