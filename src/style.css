@@ -178,11 +178,22 @@ html.js-reveal .reveal.active { opacity: 1; transform: none; }
   list-style: none;
 }
 .site-mobile-menu summary::-webkit-details-marker { display: none; }
+.site-nav a:focus-visible,
+.site-header-cta:focus-visible,
+.site-mobile-menu summary:focus-visible,
+.site-mobile-menu-panel a:focus-visible,
+.site-footer a:focus-visible {
+  outline: 2px solid #C3D3C7;
+  outline-offset: 3px;
+}
 .site-mobile-menu-panel {
   position: absolute;
   top: 3.15rem;
   right: 0;
   width: min(22rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: .65rem;
   display: grid;
   gap: .2rem;
@@ -234,12 +245,12 @@ html.js-reveal .reveal.active { opacity: 1; transform: none; }
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  color: rgba(252, 250, 247, .35);
+  color: rgba(252, 250, 247, .55);
   font-size: .7rem;
   letter-spacing: .08em;
 }
 .site-footer-bottom-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .65rem 1.2rem; }
-.site-footer-bottom a { color: rgba(252, 250, 247, .48); text-decoration: none; }
+.site-footer-bottom a { color: rgba(252, 250, 247, .68); text-decoration: none; }
 
 @media (max-width: 800px) {
   .site-nav, .site-header-cta { display: none; }
