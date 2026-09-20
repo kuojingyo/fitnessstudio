@@ -1,5 +1,14 @@
 import './schedule-redesign.css';
 import { buildDayBookingIndex } from './schedule-day-index.js';
+import {
+  COACH_DURATIONS,
+  DEFAULT_COACH_DURATION,
+  coachDurationOptions,
+  dayBookingRowspan,
+  isBookingStartInDayRange,
+  isBookingEndWithinNightLimit,
+  isAllowedBookingDuration,
+} from './schedule-booking-rules.js';
 import { ADMIN_CAPACITY, buildAdminSegments, buildAdminSlotStates, wouldExceedAdminCapacity } from './admin-schedule-layout.js';
 import {
   ADMIN_DURATIONS,
@@ -51,7 +60,6 @@ const OPEN_HOUR = 9;
 const CLOSE_HOUR = 22;
 const SLOT_MINUTES = 15;
 const SLOTS_PER_DAY = (CLOSE_HOUR - OPEN_HOUR) * 60 / SLOT_MINUTES;
-const COACH_DURATIONS = [75, 90];
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:09|1\d|2[01]):(?:00|15|30|45)$/;
 const FORCE_LOCAL_DEMO = import.meta.env.DEV && new URLSearchParams(window.location.search).get('demo') === '1';
@@ -140,7 +148,8 @@ function normalizeBookings(value) {
         && owner
         && TIME_PATTERN.test(time)
         && Number.isFinite(duration) && duration > 0 && duration % SLOT_MINUTES === 0
-        && Number.isInteger(slot) && validateRange(slot, duration)
+        && Number.isInteger(slot) && validateRange(slot, duration, space)
+        && isAllowedBookingDuration(space, duration)
         && (kind !== 'team' || isTeamSpace(space))
         && (item.draft === undefined || (item.draft === true && space === 1 && kind === 'admin'));
       if (!valid) { ignoredCount++; continue; }
@@ -213,7 +222,10 @@ function conflictingOwner(list, time, duration, excludeIds = [], owner, nickname
     return overlaps(time, duration, b.time, b.duration);
   }) || null;
 }
-function validateRange(slot, duration) { return slot >= 0 && slot + durationToSlots(duration) <= SLOTS_PER_DAY; }
+function validateRange(slot, duration, space) {
+  if (isAdminSpace(space)) return slot >= 0 && slot + durationToSlots(duration) <= SLOTS_PER_DAY;
+  return isBookingStartInDayRange(slotToTime(slot)) && isBookingEndWithinNightLimit(slot, duration);
+}
 
 function captureScheduleScroll() {
   const tableWrap = $('.rs-table-wrap');
@@ -1414,7 +1426,7 @@ function renderDayView(main) {
       }
       const display = `${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}`;
       const remark = booking.remark ? `<div class="rs-remark">📝 ${escapeHtml(booking.remark)}</div>` : '';
-      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}" rowspan="${durationToSlots(booking.duration)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))}</small>${remark}${creatorNoteHtml(booking)}</td>`;
+      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}" rowspan="${dayBookingRowspan(booking.time, booking.duration, SLOTS_PER_DAY)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))}</small>${remark}${creatorNoteHtml(booking)}</td>`;
     }
     html += '</tr>';
   }
@@ -1435,8 +1447,8 @@ function buildModal(mode, booking, space, slot, dateKey) {
   const editing = mode === 'edit';
   const owner = editing ? booking.owner : (SCHEDULABLE_USERS.includes(currentUser.name) ? currentUser.name : SCHEDULABLE_USERS[0]);
   const kind = editing ? (booking.kind || (isAdminSpace(space) ? 'admin' : 'coach')) : (isAdminSpace(space) ? 'admin' : 'coach');
-  const durations = isAdminSpace(space) ? ADMIN_DURATIONS : COACH_DURATIONS;
-  const duration = editing ? Number(booking.duration) : (isAdminSpace(space) ? 90 : 75);
+  const durations = isAdminSpace(space) ? ADMIN_DURATIONS : coachDurationOptions({ editing, duration: booking?.duration });
+  const duration = editing ? Number(booking.duration) : (isAdminSpace(space) ? 90 : DEFAULT_COACH_DURATION);
   const owners = ownerChoices();
   const selectedOwner = owners.includes(owner) ? owner : owners[0];
   const canChangeKind = isTeamSpace(space);
@@ -1564,7 +1576,10 @@ function validateBooking(values, state, existingIds = []) {
   if (values.kind === 'team' && !isTeamSpace(state.space)) return '團課只能安排在二樓自由重量區。';
   if (isAdminSpace(state.space) && values.kind !== 'admin') return '行政時段只能使用行政類型。';
   if (!isAdminSpace(state.space) && values.kind === 'admin') return '一般空間不能使用行政類型。';
-  if (!validateRange(state.slot, values.duration)) return '預約時段超過 22:00，請縮短課程或更換時間。';
+  if (!isAllowedBookingDuration(state.space, values.duration)) {
+    return isAdminSpace(state.space) ? '行政時段時長需為 30 至 240 分鐘。' : '課程時長僅支援 60 或 90 分鐘。';
+  }
+  if (!validateRange(state.slot, values.duration, state.space)) return '預約時段超過 22:00，請縮短課程或更換時間。';
   const list = allBookingsForDate(state.dateKey);
   const spaces = targetSpaces(values.kind, state.space);
   if (isAdminSpace(state.space)) {

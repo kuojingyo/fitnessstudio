@@ -1,12 +1,16 @@
 import { ADMIN_CAPACITY } from './admin-schedule-layout.js';
+import { ALLOWED_COACH_DURATIONS } from './schedule-booking-rules.js';
 
 const ADMIN_SPACE = 1;
 const OTHER_OWNER = '其他';
 const OPEN_MINUTES = 9 * 60;
 const CLOSE_MINUTES = 22 * 60;
+const DAY_END_MINUTES = 24 * 60;
 const SLOT_MINUTES = 15;
 const MIN_ADMIN_DURATION = 30;
 const MAX_ADMIN_DURATION = 240;
+// 教練課與團課時長白名單與前端共用，避免前後端規則不一致
+const ALLOWED_COACH_DURATION_SET = new Set(ALLOWED_COACH_DURATIONS);
 const MAX_SPACE = 9;
 const TIME_PATTERN = /^(\d{2}):(\d{2})$/;
 const DANGEROUS_CHILD_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
@@ -121,7 +125,9 @@ function hasValidBookingRange(booking) {
   const duration = bookingDurationNumber(booking?.duration);
   return !!range
     && range.start >= OPEN_MINUTES
-    && range.end <= CLOSE_MINUTES
+    && range.start < CLOSE_MINUTES
+    && range.end <= DAY_END_MINUTES
+    && ALLOWED_COACH_DURATION_SET.has(duration)
     && range.start % SLOT_MINUTES === 0
     && duration % SLOT_MINUTES === 0;
 }

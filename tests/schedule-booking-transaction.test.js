@@ -1372,3 +1372,70 @@ test('bookingKindForOverlap 對缺 kind 的舊行政資料推斷為 admin', () =
   assert.equal(bookingTransactionModule.bookingKindForOverlap({ space: '1', time: '10:00', duration: 60 }), 'admin');
   assert.equal(bookingTransactionModule.bookingKindForOverlap({ space: 2, time: '10:00', duration: 60 }), 'coach');
 });
+
+test('一般教練課與團課可在 21:00 後建立，實際結束時間可超過 22:00', () => {
+  const coach = regularBooking('late-coach', 2, '史昕銓', '21:30', 90);
+  const team = [7, 8, 9].map(space => ({
+    ...coach,
+    id: `late-team-${space}`,
+    space,
+    kind: 'team',
+    groupId: 'late-team',
+  }));
+
+  const coachResult = applyDateBookingMutation({}, { additions: [coach] });
+  const teamResult = applyDateBookingMutation({}, { additions: team });
+
+  assert.equal(coachResult.ok, true);
+  assert.equal(teamResult.ok, true);
+  assert.equal(coachResult.value['late-coach'].time, '21:30');
+  assert.equal(coachResult.value['late-coach'].duration, 90);
+});
+
+test('行政時段仍禁止實際結束超過 22:00', () => {
+  const result = applyDateBookingMutation({}, {
+    additions: [adminBooking('late-admin', '21:30', 90)],
+  });
+
+  assert.deepEqual(result, { ok: false, value: {}, reason: 'admin-range' });
+});
+
+test('教練課與團課延後結束不得跨到隔天（午夜為界），21:45 起 90 分鐘仍可建立', () => {
+  const crossMidnight = applyDateBookingMutation({}, {
+    additions: [regularBooking('cross-midnight', 2, '史昕銓', '21:45', 240)],
+  });
+  const lateButSameDay = applyDateBookingMutation({}, {
+    additions: [regularBooking('late-90', 3, '史昕銓', '21:45', 90)],
+  });
+
+  assert.deepEqual(crossMidnight, { ok: false, value: {}, reason: 'invalid-booking-data' });
+  assert.equal(lateButSameDay.ok, true);
+  assert.equal(lateButSameDay.value['late-90'].duration, 90);
+});
+
+test('教練課與團課時長僅允許 60／75／90 分鐘，其餘時長一律拒絕寫入', () => {
+  const run = duration => applyDateBookingMutation({}, {
+    additions: [regularBooking(`coach-${duration}`, 2, '史昕銓', '10:00', duration)],
+  });
+  const team = duration => applyDateBookingMutation({}, {
+    additions: [7, 8, 9].map(space => ({
+      id: `team-${duration}-${space}`,
+      date: '2026-08-13',
+      space,
+      owner: '史昕銓',
+      kind: 'team',
+      groupId: `team-${duration}`,
+      time: '10:00',
+      duration,
+    })),
+  });
+
+  assert.equal(run(60).ok, true, '60 分鐘應允許');
+  assert.equal(run(75).ok, true, '既有 75 分鐘應允許');
+  assert.equal(run(90).ok, true, '90 分鐘應允許');
+  assert.equal(team(75).ok, true, '團課 75 分鐘應允許');
+  for (const duration of [30, 45, 105, 150]) {
+    assert.deepEqual(run(duration), { ok: false, value: {}, reason: 'invalid-booking-data' }, `${duration} 分鐘應拒絕`);
+    assert.deepEqual(team(duration), { ok: false, value: {}, reason: 'invalid-booking-data' }, `團課 ${duration} 分鐘應拒絕`);
+  }
+});
