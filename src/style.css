@@ -12,13 +12,15 @@
   --font-brand: "字由源黑", "HelloFont Source Han Sans", "Source Han Sans TC", "思源黑體", sans-serif;
 }
 html {
-  font-size: 100%;
+  /* 全站整體放大 25%：基準 100% → 125%（rem 系的字級、間距、卡片與容器會一起等比例變大） */
+  font-size: 125%;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
 
+/* 大螢幕加成：原 106.25% 同步 ×1.25 = 132.8125%（27 吋等寬螢幕） */
 @media (min-width: 1280px) {
-  html { font-size: 106.25%; }
+  html { font-size: 132.8125%; }
 }
 
 body {
