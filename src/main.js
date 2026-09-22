@@ -39,15 +39,22 @@ function initScrollReveal() {
   window.setTimeout(revealAll, 1800);
 }
 
-// P02 量測：聯絡點擊事件（GA4 dataLayer，無 cookie／不傳任何個人資料）
-// - 只記「點了哪個聯絡入口」；LINE 點擊 ≠ 有效詢問，後續由人工 lead ledger 對照
-// - 隱私頁同步說明：公開頁僅記錄匿名點擊統計，不使用廣告追蹤
+// P02 量測：聯絡點擊事件（匿名，無 cookie／不傳任何個人資料）
+// - 以 gtag('event') 發送（gtag.js 格式；直接 push 物件不會進 GA4）
+// - line_click／phone_click：供 Google Ads 轉換匯入（廣告成效評估）
+// - contact_click：保留原始統計（channel 含 line／phone／map）
+// - LINE 點擊 ≠ 有效詢問，後續由人工 lead ledger 對照
 function initContactTracking() {
   if (typeof window.dataLayer === 'undefined') {
     window.dataLayer = [];
   }
 
   const closest = (el, selector) => (el.closest ? el.closest(selector) : null);
+  const sendEvent = (name, params) => {
+    if (typeof window.gtag === 'function') {
+      window.gtag('event', name, params);
+    }
+  };
 
   document.addEventListener('click', (event) => {
     if (event.defaultPrevented || event.button !== 0) return;
@@ -76,6 +83,13 @@ function initContactTracking() {
       placement,
       page_path: window.location.pathname,
     });
+
+    // 高意圖聯絡事件（不含 map）：Google Ads 轉換匯入來源
+    if (channel === 'line') {
+      sendEvent('line_click', { placement, page_path: window.location.pathname });
+    } else if (channel === 'phone') {
+      sendEvent('phone_click', { placement, page_path: window.location.pathname });
+    }
   }, { passive: true });
 }
 
