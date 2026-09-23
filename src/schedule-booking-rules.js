@@ -1,10 +1,10 @@
-export const COACH_DURATIONS = [60, 90];
-export const DEFAULT_COACH_DURATION = 60;
-export const LEGACY_COACH_DURATIONS = [75];
+export const COACH_DURATIONS = [75, 90];
+export const DEFAULT_COACH_DURATION = 75;
+export const LEGACY_COACH_DURATIONS = [60];
 export const MIN_ADMIN_DURATION = 30;
 export const MAX_ADMIN_DURATION = 240;
 const SLOT_MINUTES = 15;
-// 允許寫入的教練課與團課時長：60／90 為現行可選項，75 只為既有資料保留（不可再被選擇）
+// 允許寫入的教練課與團課時長：75／90 為現行可選項，60 只為既有資料保留（不可再被選擇）
 export const ALLOWED_COACH_DURATIONS = [60, 75, 90];
 
 export function isAllowedCoachDuration(value) {

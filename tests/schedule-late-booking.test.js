@@ -14,24 +14,24 @@ import {
   dayBookingRowspan,
 } from '../src/schedule-booking-rules.js';
 
-test('新建教練課與團課提供 60/90 分鐘，預設 60 分鐘', () => {
-  assert.deepEqual(COACH_DURATIONS, [60, 90]);
-  assert.equal(DEFAULT_COACH_DURATION, 60);
-  assert.deepEqual(coachDurationOptions(), [60, 90]);
+test('新建教練課與團課提供 75/90 分鐘，預設 75 分鐘', () => {
+  assert.deepEqual(COACH_DURATIONS, [75, 90]);
+  assert.equal(DEFAULT_COACH_DURATION, 75);
+  assert.deepEqual(coachDurationOptions(), [75, 90]);
 });
 
-test('編輯既有 75 分鐘課程時保留 75（僅顯示用），不會默默改成 60', () => {
-  assert.deepEqual(coachDurationOptions({ editing: true, duration: 75 }), [60, 90, 75]);
-  assert.deepEqual(coachDurationOptions({ editing: true, duration: 90 }), [60, 90]);
+test('編輯既有 60 分鐘課程時保留 60（僅顯示用），不會默默改成 75', () => {
+  assert.deepEqual(coachDurationOptions({ editing: true, duration: 60 }), [75, 90, 60]);
+  assert.deepEqual(coachDurationOptions({ editing: true, duration: 90 }), [75, 90]);
 });
 
-test('75 分鐘不再是可選時長，僅既有 75 分鐘課程以原時長保留', () => {
-  assert.equal(isLegacyCoachDuration(75), true);
-  assert.equal(isLegacyCoachDuration(60), false, '60 分鐘是現行選項，不可標記為舊時長');
+test('60 分鐘不再是可選時長，僅既有 60 分鐘課程以原時長保留', () => {
+  assert.equal(isLegacyCoachDuration(60), true);
+  assert.equal(isLegacyCoachDuration(75), false, '75 分鐘是現行選項，不可標記為舊時長');
   assert.equal(isLegacyCoachDuration(90), false, '90 分鐘是現行選項，不可標記為舊時長');
-  assert.equal(isLegacyCoachDuration('75'), true, '字串型舊資料也要能辨識');
-  assert.equal(isAllowedCoachDuration(75), true, '既有 75 分鐘資料仍必須可儲存，編輯時不得失敗');
-  assert.deepEqual(coachDurationOptions({ editing: false }), [60, 90], '新建排課絕不出現 75 分鐘');
+  assert.equal(isLegacyCoachDuration('60'), true, '字串型舊資料也要能辨識');
+  assert.equal(isAllowedCoachDuration(60), true, '既有 60 分鐘資料仍必須可儲存，編輯時不得失敗');
+  assert.deepEqual(coachDurationOptions({ editing: false }), [75, 90], '新建排課絕不出現 60 分鐘');
 });
 
 test('教練課與團課允許 09:00 至 21:45 開始，行政時段的結束限制由交易層另行處理', () => {

@@ -1583,7 +1583,7 @@ function validateBooking(values, state, existingIds = []) {
   if (isAdminSpace(state.space) && values.kind !== 'admin') return '行政時段只能使用行政類型。';
   if (!isAdminSpace(state.space) && values.kind === 'admin') return '一般空間不能使用行政類型。';
   if (!isAllowedBookingDuration(state.space, values.duration)) {
-    return isAdminSpace(state.space) ? '行政時段時長需為 30 至 240 分鐘。' : '課程時長僅支援 60 或 90 分鐘。';
+    return isAdminSpace(state.space) ? '行政時段時長需為 30 至 240 分鐘。' : '課程時長僅支援 75 或 90 分鐘。';
   }
   if (!validateRange(state.slot, values.duration, state.space)) return '預約時段超過 22:00，請縮短課程或更換時間。';
   const list = allBookingsForDate(state.dateKey);
