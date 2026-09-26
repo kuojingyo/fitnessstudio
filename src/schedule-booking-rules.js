@@ -1,19 +1,13 @@
 export const COACH_DURATIONS = [75, 90];
 export const DEFAULT_COACH_DURATION = 75;
-export const LEGACY_COACH_DURATIONS = [60];
 export const MIN_ADMIN_DURATION = 30;
 export const MAX_ADMIN_DURATION = 240;
 const SLOT_MINUTES = 15;
-// 允許寫入的教練課與團課時長：75／90 為現行可選項，60 只為既有資料保留（不可再被選擇）
+// 允許寫入的教練課與團課時長：75／90 為現行可選項；60 僅為讓既有資料仍可寫入而保留，UI 不提供 60 選項
 export const ALLOWED_COACH_DURATIONS = [60, 75, 90];
 
 export function isAllowedCoachDuration(value) {
   return typeof value === 'number' && ALLOWED_COACH_DURATIONS.includes(value);
-}
-
-// 舊時長（已取消選項）：只在編輯既有資料時以原時長顯示，不可被重新選擇
-export function isLegacyCoachDuration(value) {
-  return LEGACY_COACH_DURATIONS.includes(Number(value));
 }
 
 // 前端載入正規化與表單驗證共用：行政時段限制 30–240 分鐘，教練課與團課僅允許白名單時長
@@ -27,10 +21,8 @@ export function isAllowedBookingDuration(space, duration, { adminSpace = 1 } = {
   return isAllowedCoachDuration(duration);
 }
 
-export function coachDurationOptions({ editing = false, duration } = {}) {
-  if (editing && LEGACY_COACH_DURATIONS.includes(Number(duration))) {
-    return [...COACH_DURATIONS, Number(duration)];
-  }
+// 排課視窗的時長選項：一律只有現行可選時長，不再顯示舊時長
+export function coachDurationOptions() {
   return [...COACH_DURATIONS];
 }
 

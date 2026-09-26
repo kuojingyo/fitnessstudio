@@ -8,7 +8,6 @@ import {
   isBookingStartInDayRange,
   isBookingEndWithinNightLimit,
   isAllowedBookingDuration,
-  isLegacyCoachDuration,
 } from './schedule-booking-rules.js';
 import { ADMIN_CAPACITY, buildAdminSegments, buildAdminSlotStates, wouldExceedAdminCapacity } from './admin-schedule-layout.js';
 import {
@@ -1444,17 +1443,15 @@ function renderDayView(main) {
   attachCoachClipboard(main, dayBookings, dateKey);
   $('[data-toggle-closed-day]', main)?.addEventListener('click', () => toggleClosedDay(dateKey));
 }
-function durationOptionHtml(item, selectedDuration, space) {
-  const legacy = !isAdminSpace(space) && isLegacyCoachDuration(item);
-  const label = isAdminSpace(space) ? `${item / 60} 小時` : `${item} 分鐘${legacy ? '（原時長，不可選擇）' : ''}`;
-  return `<option value="${item}" ${item === selectedDuration ? 'selected' : ''}${legacy ? ' disabled' : ''}>${label}</option>`;
-}
 function buildModal(mode, booking, space, slot, dateKey) {
   const editing = mode === 'edit';
   const owner = editing ? booking.owner : (SCHEDULABLE_USERS.includes(currentUser.name) ? currentUser.name : SCHEDULABLE_USERS[0]);
   const kind = editing ? (booking.kind || (isAdminSpace(space) ? 'admin' : 'coach')) : (isAdminSpace(space) ? 'admin' : 'coach');
-  const durations = isAdminSpace(space) ? ADMIN_DURATIONS : coachDurationOptions({ editing, duration: booking?.duration });
-  const duration = editing ? Number(booking.duration) : (isAdminSpace(space) ? 90 : DEFAULT_COACH_DURATION);
+  const durations = isAdminSpace(space) ? ADMIN_DURATIONS : coachDurationOptions();
+  const fallbackDuration = isAdminSpace(space) ? 90 : DEFAULT_COACH_DURATION;
+  const storedDuration = editing ? Number(booking.duration) : fallbackDuration;
+  // 舊時長（例如 60 分鐘）不在選項中時，顯示現行預設時長；儲存後即以顯示值為準
+  const duration = durations.includes(storedDuration) ? storedDuration : fallbackDuration;
   const owners = ownerChoices();
   const selectedOwner = owners.includes(owner) ? owner : owners[0];
   const canChangeKind = isTeamSpace(space);
@@ -1471,7 +1468,7 @@ function buildModal(mode, booking, space, slot, dateKey) {
     <div id="rs-nickname-row" class="${selectedOwner === OTHER_OWNER ? '' : 'rs-hidden'}"><label for="rs-nickname">其他暱稱</label><input id="rs-nickname" value="${escapeHtml(editing ? (booking.nickname || '') : '')}" placeholder="例如：小明"></div>
     <label for="rs-kind">課程類型</label><select id="rs-kind" ${canChangeKind ? '' : 'disabled'}>${kindOptions}</select>
     <div id="rs-team-note" class="rs-permission-note ${kind === 'team' ? '' : 'rs-hidden'}">團課會同時佔用二樓自由重量(1)、二樓自由重量(2)、二樓機動空間。</div>
-    <label for="rs-duration">課程時長</label><select id="rs-duration">${durations.map(item => durationOptionHtml(item, duration, space)).join('')}</select>
+    <label for="rs-duration">課程時長</label><select id="rs-duration">${durations.map(item => `<option value="${item}" ${item === duration ? 'selected' : ''}>${isAdminSpace(space) ? `${item / 60} 小時` : `${item} 分鐘`}</option>`).join('')}</select>
     <label for="rs-remark">📝 備註</label><input id="rs-remark" value="${escapeHtml(editing ? (booking.remark || '') : '')}" placeholder="選填，例如：體驗課、調整姿勢">
     <div class="rs-modal-actions"><button type="button" class="rs-secondary" id="rs-modal-cancel">關閉</button>${editing && canDeleteBooking(booking) ? '<button type="button" class="rs-danger-btn" id="rs-delete">取消排課</button>' : ''}${showDraftButton ? '<button type="button" class="rs-draft-btn" id="rs-draft-submit">📝 預排班</button>' : ''}<button type="submit" class="rs-primary">${editing ? '確認修改' : '確認預約'}</button></div>
   </form></div>`;
