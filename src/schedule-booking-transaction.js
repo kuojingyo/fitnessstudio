@@ -163,6 +163,7 @@ function normalizedMutation(mutation = {}) {
     patches: mutation.patches || [],
     expectedRecords: mutation.expectedRecords || [],
     expectedGroups: mutation.expectedGroups || [],
+    forceRemove: mutation.forceRemove === true,
   };
 }
 
@@ -374,6 +375,106 @@ export function buildCoachBookingPaste({ source, targetDate, id, createdAt = Dat
   };
 }
 
+// 拖曳搬移用：同一天內改時間／場地（團課三筆一起改時間，場地固定 7／8／9；行政維持 space 1）
+export function relocateBookingRecords(records, { time, space } = {}) {
+  const list = (Array.isArray(records) ? records : []).filter(Boolean);
+  const targetTime = String(time ?? '').trim();
+  const targetSpace = bookingSpaceNumber(space);
+  if (!list.length || !/^\d{2}:\d{2}$/.test(targetTime) || !targetSpace) return null;
+  const kind = normalizedKind(list[0]);
+  if (kind === 'team') {
+    if (!TEAM_SPACES.includes(targetSpace)) return null;
+    if (list.some(booking => !TEAM_SPACES.includes(bookingSpaceNumber(booking?.space)))) return null;
+  } else if (list.length !== 1) return null;
+  return list.map(booking => ({
+    ...booking,
+    time: targetTime,
+    space: kind === 'team' ? bookingSpaceNumber(booking.space) : targetSpace,
+  }));
+}
+
+// 拖曳搬移用：跨日期複製記錄（新 id、新日期；團課維持 7／8／9，其餘套用指定場地）
+export function copyBookingRecordsForDate(records, { date, space, makeId, createdAt = Date.now() } = {}) {
+  const list = (Array.isArray(records) ? records : []).filter(Boolean);
+  const destination = String(date ?? '').trim();
+  const targetSpace = bookingSpaceNumber(space);
+  if (!list.length || typeof makeId !== 'function' || !/^\d{4}-\d{2}-\d{2}$/.test(destination) || !targetSpace) return null;
+  const kind = normalizedKind(list[0]);
+  if (kind === 'team') {
+    if (!TEAM_SPACES.includes(targetSpace)) return null;
+    if (list.some(booking => !TEAM_SPACES.includes(bookingSpaceNumber(booking?.space)))) return null;
+  }
+  const moved = [];
+  for (const source of list) {
+    if (!isSchedulableBookingOwner(normalizedOwner(source.owner))) return null;
+    const id = String(makeId() ?? '').trim();
+    if (!isSafeBookingId(id)) return null;
+    const record = {
+      id,
+      date: destination,
+      space: kind === 'team' ? bookingSpaceNumber(source.space) : targetSpace,
+      owner: normalizedOwner(source.owner),
+      time: String(source.time ?? '').trim(),
+      duration: bookingDurationNumber(source.duration),
+      kind,
+      createdAt,
+    };
+    if (record.duration == null) return null;
+    if (source.nickname) record.nickname = String(source.nickname);
+    if (source.remark) record.remark = String(source.remark);
+    if (source.groupId) record.groupId = String(source.groupId);
+    if (source.createdBy) record.createdBy = String(source.createdBy);
+    if (source.draft === true) record.draft = true;
+    moved.push(record);
+  }
+  return moved;
+}
+
+// 拖曳跨日搬移計畫：先寫目標日（衝突就中止，來源不動）→ 再刪來源日（帶版本檢查）→ 失敗時補償刪除目標日
+export function buildBookingMovePlan({ originalRecords, targetDate, targetSpace, makeId, createdAt = Date.now() } = {}) {
+  const records = (Array.isArray(originalRecords) ? originalRecords : []).filter(Boolean);
+  if (!records.length) return null;
+  const sourceDate = String(records[0].date ?? '').trim();
+  const destination = String(targetDate ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(sourceDate) || !/^\d{4}-\d{2}-\d{2}$/.test(destination) || destination === sourceDate) return null;
+  const moved = copyBookingRecordsForDate(records, { date: destination, space: targetSpace, makeId, createdAt });
+  if (!moved) return null;
+  return {
+    records: moved,
+    targetMutation: buildDateBookingMutation({ mode: 'create', records: moved }),
+    sourceMutation: buildDateBookingMutation({ mode: 'delete', originalRecords: records, requiredTeamSpaces: TEAM_SPACES }),
+    rollbackMutation: buildDateBookingMutation({ mode: 'delete', originalRecords: moved, requiredTeamSpaces: TEAM_SPACES }),
+    // 備援補償：目標資料是我們幾秒前才建立的，即使被併發修改也要刪掉自己建立的 id，避免留下重複排課
+    rollbackForceMutation: {
+      ...buildDateBookingMutation({ mode: 'delete', originalRecords: moved, requiredTeamSpaces: TEAM_SPACES }),
+      // 補償時不驗群組版本（目標已被併發更動也要清乾淨），清完仍由 hasValidTeamGroups 檢查不留半套團課
+      expectedGroups: [],
+      forceRemove: true,
+    },
+  };
+}
+
+// 編輯視窗改日期用：由「使用者已編輯好的目標記錄」＋來源記錄組出跨日搬移計畫
+export function buildBookingMovePlanFromRecords({ records, originalRecords } = {}) {
+  const targetRecords = (Array.isArray(records) ? records : []).filter(Boolean);
+  const sourceRecords = (Array.isArray(originalRecords) ? originalRecords : []).filter(Boolean);
+  if (!targetRecords.length || !sourceRecords.length) return null;
+  const destination = String(targetRecords[0].date ?? '').trim();
+  const sourceDate = String(sourceRecords[0].date ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(destination) || !/^\d{4}-\d{2}-\d{2}$/.test(sourceDate) || destination === sourceDate) return null;
+  return {
+    records: targetRecords,
+    targetMutation: buildDateBookingMutation({ mode: 'create', records: targetRecords }),
+    sourceMutation: buildDateBookingMutation({ mode: 'delete', originalRecords: sourceRecords, requiredTeamSpaces: TEAM_SPACES }),
+    rollbackMutation: buildDateBookingMutation({ mode: 'delete', originalRecords: targetRecords, requiredTeamSpaces: TEAM_SPACES }),
+    rollbackForceMutation: {
+      ...buildDateBookingMutation({ mode: 'delete', originalRecords: targetRecords, requiredTeamSpaces: TEAM_SPACES }),
+      expectedGroups: [],
+      forceRemove: true,
+    },
+  };
+}
+
 function draftBlindTo(booking, target) {
   return booking?.draft === true && target?.draft !== true;
 }
@@ -483,7 +584,7 @@ function validateExpectedGroups(dateNode, expectedGroups) {
 
 export function applyDateBookingMutation(currentValue, mutation) {
   const {
-    removeIds, additions, replacements, patches, expectedRecords, expectedGroups,
+    removeIds, additions, replacements, patches, expectedRecords, expectedGroups, forceRemove,
   } = normalizedMutation(mutation);
   const normalizedCurrent = normalizeCurrentDateNode(currentValue);
   if (!normalizedCurrent.ok) {
@@ -499,16 +600,28 @@ export function applyDateBookingMutation(currentValue, mutation) {
   for (const record of expectedRecords) {
     const id = String(record?.id || '').trim();
     const entry = id ? findBookingEntry(current, id) : null;
-    if (!entry) return { ok: false, value: currentValue ?? null, reason: 'booking-missing' };
+    if (!entry) {
+      // 強制補償：資料已不存在（例如已被他人刪除）＝已達成「不留下重複」，不再視為失敗
+      if (forceRemove && id) {
+        // 佔位：讓 removeIds 檢查（removeIds 必須在 expectedEntries 內）通過，稍後直接略過刪除
+        expectedEntries.set(id, null);
+        continue;
+      }
+      return { ok: false, value: currentValue ?? null, reason: 'booking-missing' };
+    }
     const [key, booking] = entry;
-    if (String(key) !== id || booking?.id == null || String(booking.id) !== id
-      || !hasExpectedValues(booking, record.expected)) {
+    if (String(key) !== id || booking?.id == null || String(booking.id) !== id) {
+      return { ok: false, value: currentValue ?? null, reason: 'booking-changed' };
+    }
+    if (!forceRemove && !hasExpectedValues(booking, record.expected)) {
       return { ok: false, value: currentValue ?? null, reason: 'booking-changed' };
     }
     expectedEntries.set(id, booking);
   }
 
-  if ([...expectedEntries.values()].some(booking => (
+  // 強制補償（forceRemove）時略過群組白名單檢查：目標是我們剛建立的資料，
+  // 即使群組已被併發更動也要清乾淨；清除後的完整性仍由 hasValidTeamGroups 把關。
+  if (!forceRemove && [...expectedEntries.values()].some(booking => (
     normalizedKind(booking) === 'team'
     && !groupValidation.groupIds.has(String(booking.groupId ?? '').trim())
   ))) {
@@ -607,6 +720,61 @@ export function applyDateBookingMutation(currentValue, mutation) {
     value: Object.keys(next).length ? next : null,
     reason: null,
   };
+}
+
+// 跨日搬移：兩步寫入＋補償。先寫目標日（衝突／驗證失敗即中止，來源完全沒動），
+// 再刪來源日（帶版本檢查，避免覆蓋他人後來的修改）；步驟二失敗時把目標日新資料刪掉，不留重複。
+export async function commitBookingMove({ targetReference, sourceReference, plan, runTransaction }) {
+  if (!plan) return { committed: false, reason: 'invalid-mutation', rolledBack: false, forcedRollback: false };
+  const compensate = async () => {
+    let rollback = { committed: false };
+    try {
+      rollback = await commitDateBookingMutation({
+        reference: targetReference, mutation: plan.rollbackMutation, runTransaction,
+      });
+    } catch (error) {
+      rollback = { committed: false };
+    }
+    if (rollback.committed) return { rolledBack: true, forcedRollback: false };
+    let forced = { committed: false };
+    if (plan.rollbackForceMutation) {
+      try {
+        forced = await commitDateBookingMutation({
+          reference: targetReference, mutation: plan.rollbackForceMutation, runTransaction,
+        });
+      } catch (error) {
+        forced = { committed: false };
+      }
+    }
+    return { rolledBack: forced.committed, forcedRollback: forced.committed };
+  };
+
+  try {
+    const targetResult = await commitDateBookingMutation({
+      reference: targetReference, mutation: plan.targetMutation, runTransaction,
+    });
+    if (!targetResult.committed) {
+      return { committed: false, reason: targetResult.reason, rolledBack: false, forcedRollback: false };
+    }
+  } catch (error) {
+    // 目標交易結果不明：先嘗試清掉我們建立的資料（不存在時視為已達成），再回報失敗
+    const cleaned = await compensate();
+    return { committed: false, reason: 'target-failed', ...cleaned };
+  }
+
+  let sourceResult = { committed: false, reason: 'source-failed' };
+  try {
+    sourceResult = await commitDateBookingMutation({
+      reference: sourceReference, mutation: plan.sourceMutation, runTransaction,
+    });
+  } catch (error) {
+    sourceResult = { committed: false, reason: 'source-failed' };
+  }
+  if (sourceResult.committed) {
+    return { committed: true, reason: null, rolledBack: false, forcedRollback: false };
+  }
+  const compensation = await compensate();
+  return { committed: false, reason: sourceResult.reason, ...compensation };
 }
 
 export async function commitDateBookingMutation({ reference, mutation, runTransaction }) {

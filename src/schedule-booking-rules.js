@@ -52,3 +52,25 @@ export function dayBookingRowspan(time, duration, totalSlots, { openMinutes = 9 
   if (!Number.isFinite(start) || !Number.isFinite(slots)) return 0;
   return Math.max(0, Math.min(Number(totalSlots) - start, slots));
 }
+
+export function resolveDropSlot({ clientY, firstTop, lastBottom, rowHeight, slotCount = 52 } = {}) {
+  if (![clientY, firstTop, lastBottom, rowHeight].every(Number.isFinite)) return null;
+  if (rowHeight <= 0 || !(slotCount > 0)) return null;
+  if (clientY < firstTop || clientY > lastBottom) return null;
+  const slot = Math.floor((clientY - firstTop) / rowHeight);
+  if (!Number.isFinite(slot)) return null;
+  return Math.max(0, Math.min(slotCount - 1, slot));
+}
+
+export function resolveDropSpace({ clientX, rects } = {}) {
+  if (!Number.isFinite(clientX) || !Array.isArray(rects)) return null;
+  for (let index = 0; index < rects.length; index += 1) {
+    const rect = rects[index];
+    if (!rect) continue;
+    const left = Number(rect.left);
+    const right = Number(rect.right);
+    if (!Number.isFinite(left) || !Number.isFinite(right)) continue;
+    if (clientX >= left && clientX <= right) return index + 1;
+  }
+  return null;
+}
