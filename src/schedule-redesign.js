@@ -1516,7 +1516,10 @@ let bookingDrag = null;
 let suppressClickUntil = 0;
 
 function isMovableBooking(booking) {
-  if (!booking || mutationInProgress) return false;
+  // 注意：這裡「不可」檢查 mutationInProgress——監聽器在重繪時綁定，
+  // 若因儲存中被跳過，存過任何資料後卡片就會漏綁拖曳（拖不動直到刷新）。
+  // 「儲存中不可開始拖曳」由 beginBookingDrag 的入口檢查負責。
+  if (!booking) return false;
   if (isAdminSpace(booking.space)) return false;
   const kind = booking.kind || 'coach';
   return (kind === 'coach' || kind === 'team') && canEditBooking(booking);
@@ -1668,7 +1671,7 @@ function moveBookingDrag(event) {
   event.preventDefault();
   positionDragGhost(drag.ghost, event.clientX, event.clientY);
   if (drag.mode === 'day') {
-    const step = (drag.booking.kind || 'coach') === 'team' ? SLOT_MINUTES : 5;
+    const step = SLOT_MINUTES; // 拖曳一律以 15 分鐘為單位吸附（教練課、團課一致）
     const target = dayDragTarget(drag.container, event.clientX, event.clientY, step);
     drag.target = target;
     if (!target) return;
