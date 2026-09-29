@@ -155,3 +155,33 @@ export function resolveDropSpace({ clientX, rects } = {}) {
   }
   return null;
 }
+
+// ── 開始時間「時／分」雙選單（2026-09-30）──
+export function hourChoices(startHour = 9, endHour = 21) {
+  const list = [];
+  for (let hour = startHour; hour <= endHour; hour += 1) list.push(hour);
+  return list;
+}
+
+export function minuteChoices({ fifteenStep = false } = {}) {
+  const step = fifteenStep ? 15 : 5;
+  const list = [];
+  for (let minute = 0; minute < 60; minute += step) list.push(String(minute).padStart(2, '0'));
+  return list;
+}
+
+export function splitClock(value) {
+  const match = /^(\d{2}):(\d{2})$/.exec(String(value));
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+  return { hour, minute };
+}
+
+export function composeClock(hour, minute) {
+  const h = Number(hour);
+  const m = Number(minute);
+  if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}

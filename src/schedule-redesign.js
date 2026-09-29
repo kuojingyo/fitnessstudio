@@ -5,14 +5,18 @@ import {
   NIGHT_LIMIT_MINUTE,
   coachDurationOptions,
   coachDurationValueFor,
+  composeClock,
   dayBookingRowspan,
   findNearestStart,
   hasOffGridBookingBoundary,
+  hourChoices,
   isAllowedBookingDuration,
+  minuteChoices,
   minuteToTime,
   parseCoachDurationValue,
   resolveDropMinutes,
   resolveDropSpace,
+  splitClock,
   timeToMinute,
 } from './schedule-booking-rules.js';
 import { ADMIN_CAPACITY, buildAdminSegments, buildAdminSlotStates, wouldExceedAdminCapacity } from './admin-schedule-layout.js';
@@ -110,13 +114,22 @@ function formatDateCN(date) { return `${date.getFullYear()}年${date.getMonth() 
 function timeToSlot(value) { const [h, m] = String(value).split(':').map(Number); return (h * 60 + m - OPEN_HOUR * 60) / SLOT_MINUTES; }
 function slotToTime(slot) { const total = OPEN_HOUR * 60 + slot * SLOT_MINUTES; return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`; }
 function durationToSlots(duration) { return Number(duration) / SLOT_MINUTES; }
-function timeChoices(selected, { stepMinutes = 5 } = {}) {
-  const total = SLOTS_PER_DAY * SLOT_MINUTES;
-  const list = [];
-  for (let minute = 0; minute < total; minute += stepMinutes) list.push(minuteToTime(minute));
-  const value = String(selected ?? '').trim();
-  if (value && !list.includes(value)) list.unshift(value);
-  return list;
+// 開始時間「時／分」雙選單：時 9-21；分依 5／15 分鐘格（教練課 5 分、團課與行政 15 分）
+function timePairHtml(timeValue, { fifteenStep }) {
+  const parsed = splitClock(timeValue);
+  const hour = parsed ? parsed.hour : OPEN_HOUR;
+  const minuteText = parsed ? pad(parsed.minute) : '00';
+  const hours = hourChoices();
+  const minutes = minuteChoices({ fifteenStep });
+  if (!hours.includes(hour)) hours.unshift(hour);              // 異常值防護：照實顯示
+  if (!minutes.includes(minuteText)) minutes.unshift(minuteText);
+  return `<div class="rs-time-pair"><select id="rs-time-hour" aria-label="開始時間（時）">${hours.map(h => `<option value="${h}" ${h === hour ? 'selected' : ''}>${h}</option>`).join('')}</select><span class="rs-time-sep">時</span><select id="rs-time-minute" aria-label="開始時間（分）">${minutes.map(m => `<option value="${m}" ${m === minuteText ? 'selected' : ''}>${m}</option>`).join('')}</select><span class="rs-time-sep">分</span></div>`;
+}
+function readTimePairValue() {
+  const hour = Number($('#rs-time-hour')?.value);
+  const minute = Number($('#rs-time-minute')?.value);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return '';
+  return composeClock(hour, minute) ?? '';
 }
 function endTime(start, duration) {
   const startSlot = timeToSlot(start);
@@ -1918,7 +1931,7 @@ function buildModal(mode, booking, space, slot, dateKey, minute) {
     <label for="rs-kind">課程類型</label><select id="rs-kind" ${canChangeKind ? '' : 'disabled'}>${kindOptions}</select>
     <div id="rs-team-note" class="rs-permission-note ${kind === 'team' ? '' : 'rs-hidden'}">團課會同時佔用二樓自由重量(1)、二樓自由重量(2)、二樓機動空間。</div>
     ${editing ? `<label for="rs-date">📅 日期</label><input type="date" id="rs-date" value="${escapeHtml(booking.date)}">` : ''}
-    <label for="rs-time">🕘 開始時間</label><select id="rs-time">${timeChoices(timeValue, { stepMinutes: isAdminSpace(space) ? SLOT_MINUTES : 5 }).map(item => `<option value="${item}" ${item === timeValue ? 'selected' : ''}>${item}</option>`).join('')}</select>
+    <label for="rs-time-hour">🕘 開始時間</label>${timePairHtml(timeValue, { fifteenStep: isAdminSpace(space) })}
     <label for="rs-duration">課程時長</label><select id="rs-duration">${durations.map(item => `<option value="${item}" ${item === duration ? 'selected' : ''}>${isAdminSpace(space) ? `${item / 60} 小時` : durationOptionLabel(item)}</option>`).join('')}</select>
     <label for="rs-remark">📝 備註</label><input id="rs-remark" value="${escapeHtml(editing ? (booking.remark || '') : '')}" placeholder="選填，例如：體驗課、調整姿勢">
     <div class="rs-modal-actions"><button type="button" class="rs-secondary" id="rs-modal-cancel">關閉</button>${editing && canDeleteBooking(booking) ? '<button type="button" class="rs-danger-btn" id="rs-delete">取消排課</button>' : ''}${showDraftButton ? '<button type="button" class="rs-draft-btn" id="rs-draft-submit">📝 預排班</button>' : ''}<button type="submit" class="rs-primary">${editing ? '確認修改' : '確認預約'}</button></div>
@@ -1929,13 +1942,26 @@ function durationOptionLabel(value) {
   if (!parsed) return `${value} 分鐘`;
   return parsed.buffer > 0 ? `${parsed.duration} 分鐘＋${parsed.buffer} 分鐘緩衝` : `${parsed.duration} 分鐘`;
 }
-function snapTimeSelectForKind(kind) {
-  if (kind !== 'team') return;
-  const select = $('#rs-time');
-  const minute = timeToMinute(select?.value);
-  if (minute == null || minute % SLOT_MINUTES === 0) return;
-  const snapped = Math.min(Math.ceil(minute / SLOT_MINUTES) * SLOT_MINUTES, SLOTS_PER_DAY * SLOT_MINUTES - SLOT_MINUTES);
-  select.value = minuteToTime(snapped);
+// 課程類型切換時同步分鐘選單：團課→僅 15 分格（非 15 倍數向上吸附、可跨時）；教練課→5 分格
+function snapTimePairForKind(kind) {
+  const hourSelect = $('#rs-time-hour');
+  const minuteSelect = $('#rs-time-minute');
+  if (!hourSelect || !minuteSelect) return;
+  const fifteenStep = kind === 'team' || isAdminSpace(modalState?.space);
+  const hours = hourChoices();
+  let hour = Number(hourSelect.value);
+  let minute = Number(minuteSelect.value);
+  if (fifteenStep && Number.isInteger(hour) && Number.isInteger(minute) && minute % SLOT_MINUTES !== 0) {
+    const total = Math.min(Math.ceil((hour * 60 + minute) / SLOT_MINUTES) * SLOT_MINUTES, 22 * 60 - SLOT_MINUTES);
+    hour = Math.floor(total / 60);
+    minute = total % 60;
+    hourSelect.value = String(hour);
+  }
+  if (!Number.isInteger(hour)) return;
+  const minuteText = pad(Number.isInteger(minute) ? minute : 0);
+  const minutes = minuteChoices({ fifteenStep });
+  const options = minutes.includes(minuteText) ? minutes : [minuteText, ...minutes]; // 異常值防護：照實顯示
+  minuteSelect.innerHTML = options.map(m => `<option value="${m}" ${m === minuteText ? 'selected' : ''}>${m}</option>`).join('');
 }
 // 新增排課推薦時間：原格起點被既有課（含緩衝）覆蓋，或當格／前一格出現非 15 分鐘對齊的
 // 佔用時，改往前找最近的 5 分鐘可排格；否則維持原本格線時間
@@ -2011,7 +2037,7 @@ function mountModal() {
   const kind = $('#rs-kind');
   kind.addEventListener('change', () => {
     $('#rs-team-note').classList.toggle('rs-hidden', kind.value !== 'team');
-    snapTimeSelectForKind(kind.value);
+    snapTimePairForKind(kind.value);
   });
   form.addEventListener('submit', async event => {
     event.preventDefault();
@@ -2060,8 +2086,7 @@ function closeModal() {
 }
 function readModalValues() {
   const dateField = $('#rs-date');
-  const timeField = $('#rs-time');
-  const time = String(timeField?.value ?? '').trim();
+  const time = readTimePairValue();
   const durationValue = String($('#rs-duration').value ?? '');
   const parsed = isAdminSpace(modalState?.space) ? null : parseCoachDurationValue(durationValue);
   return {
