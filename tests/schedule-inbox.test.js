@@ -173,3 +173,30 @@ test('withoutReadMessages 全未讀時原樣回傳', () => {
   const messages = { a: { id: 'a', read: false } };
   assert.equal(withoutReadMessages(messages), messages);
 });
+
+test('收件箱訊息支援課後緩衝：有緩衝才寫入 bufferMinutes 欄位', () => {
+  const withBuffer = buildInboxMessage({ ...validArgs, bufferMinutes: 5 });
+  assert.equal(withBuffer.bufferMinutes, 5);
+
+  const zeroBuffer = buildInboxMessage({ ...validArgs, bufferMinutes: 0 });
+  assert.equal('bufferMinutes' in zeroBuffer, false, '0 不寫入欄位');
+
+  const legacy = buildInboxMessage(validArgs);
+  assert.equal('bufferMinutes' in legacy, false, '缺省不寫入欄位');
+});
+
+test('緩衝白名單外的收件箱訊息拒絕', () => {
+  assert.equal(buildInboxMessage({ ...validArgs, bufferMinutes: 7 }), null);
+  assert.equal(buildInboxMessage({ ...validArgs, bufferMinutes: -5 }), null);
+  assert.equal(buildInboxMessage({ ...validArgs, bufferMinutes: '5' }), null, '字串不接受');
+  assert.equal(buildInboxMessage({ ...validArgs, bufferMinutes: 1.5 }), null);
+});
+
+test('normalizeInbox 保留緩衝欄位', () => {
+  const normalized = normalizeInbox({
+    '洪琇捷': {
+      a: { id: 'a', to: '洪琇捷', from: '史昕銓', kind: 'coach', date: '2026-08-18', time: '11:05', duration: 60, bufferMinutes: 5, space: 2, createdAt: 1 },
+    },
+  });
+  assert.equal(normalized['洪琇捷']['a'].bufferMinutes, 5);
+});

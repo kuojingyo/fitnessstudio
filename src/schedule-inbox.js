@@ -17,7 +17,7 @@ export function isSafeInboxId(value) {
 }
 
 export function buildInboxMessage({
-  id, to, from, kind, date, time, duration, space, remark, read = false, createdAt = Date.now(),
+  id, to, from, kind, date, time, duration, space, bufferMinutes, remark, read = false, createdAt = Date.now(),
 }) {
   if (!isSafeInboxId(id)) return null;
   if (typeof to !== 'string' || !to.trim()) return null;
@@ -27,11 +27,14 @@ export function buildInboxMessage({
   if (!isValidTime(time)) return null;
   if (!Number.isInteger(duration) || duration <= 0) return null;
   if (!Number.isInteger(space) || space < 1 || space > 9) return null;
+  if (bufferMinutes !== undefined && bufferMinutes !== null
+    && (!Number.isInteger(bufferMinutes) || ![0, 5, 10, 15].includes(bufferMinutes))) return null;
   if (!Number.isInteger(createdAt)) return null;
   const message = {
     id: String(id), to, from, kind, date, time, duration, space,
     read: read === true, createdAt,
   };
+  if (bufferMinutes > 0) message.bufferMinutes = bufferMinutes;
   if (typeof remark === 'string' && remark.trim()) {
     const trimmed = remark.trim();
     if (trimmed.length > 200) return null;

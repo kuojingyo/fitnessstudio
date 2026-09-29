@@ -1,15 +1,19 @@
 import './schedule-redesign.css';
 import { buildDayBookingIndex } from './schedule-day-index.js';
 import {
-  COACH_DURATIONS,
-  DEFAULT_COACH_DURATION,
+  DEFAULT_COACH_DURATION_VALUE,
+  NIGHT_LIMIT_MINUTE,
   coachDurationOptions,
+  coachDurationValueFor,
   dayBookingRowspan,
-  isBookingStartInDayRange,
-  isBookingEndWithinNightLimit,
+  findNearestStart,
+  hasOffGridBookingBoundary,
   isAllowedBookingDuration,
-  resolveDropSlot,
+  minuteToTime,
+  parseCoachDurationValue,
+  resolveDropMinutes,
   resolveDropSpace,
+  timeToMinute,
 } from './schedule-booking-rules.js';
 import { ADMIN_CAPACITY, buildAdminSegments, buildAdminSlotStates, wouldExceedAdminCapacity } from './admin-schedule-layout.js';
 import {
@@ -65,9 +69,11 @@ const SPACE_NAMES = ['行政時段', '一樓槓座', '一樓史密斯', '一樓c
 const OPEN_HOUR = 9;
 const CLOSE_HOUR = 22;
 const SLOT_MINUTES = 15;
+const SLOT_ROW_HEIGHT_PX = 30; // 與 .rs-day-table tbody tr 高度一致
+const PX_PER_MINUTE = SLOT_ROW_HEIGHT_PX / SLOT_MINUTES;
 const SLOTS_PER_DAY = (CLOSE_HOUR - OPEN_HOUR) * 60 / SLOT_MINUTES;
+const MIN_COACH_MINUTES = 60; // 教練課最小時長：推薦時間需容納得下一整堂課
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_PATTERN = /^(?:09|1\d|2[01]):(?:00|15|30|45)$/;
 const FORCE_LOCAL_DEMO = import.meta.env.DEV && new URLSearchParams(window.location.search).get('demo') === '1';
 
 let db = null;
@@ -104,8 +110,10 @@ function formatDateCN(date) { return `${date.getFullYear()}年${date.getMonth() 
 function timeToSlot(value) { const [h, m] = String(value).split(':').map(Number); return (h * 60 + m - OPEN_HOUR * 60) / SLOT_MINUTES; }
 function slotToTime(slot) { const total = OPEN_HOUR * 60 + slot * SLOT_MINUTES; return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`; }
 function durationToSlots(duration) { return Number(duration) / SLOT_MINUTES; }
-function timeChoices(selected) {
-  const list = Array.from({ length: SLOTS_PER_DAY }, (_, index) => slotToTime(index));
+function timeChoices(selected, { stepMinutes = 5 } = {}) {
+  const total = SLOTS_PER_DAY * SLOT_MINUTES;
+  const list = [];
+  for (let minute = 0; minute < total; minute += stepMinutes) list.push(minuteToTime(minute));
   const value = String(selected ?? '').trim();
   if (value && !list.includes(value)) list.unshift(value);
   return list;
@@ -115,6 +123,23 @@ function endTime(start, duration) {
   const durationSlots = durationToSlots(duration);
   if (!Number.isFinite(startSlot) || !Number.isFinite(durationSlots)) return '';
   return slotToTime(startSlot + durationSlots);
+}
+// 課後緩衝（分鐘）：缺省 0；無法解析時回傳 null（視為資料異常）
+function bookingBufferMinutes(booking) {
+  const raw = booking?.bufferMinutes;
+  if (raw == null || raw === '') return 0;
+  const value = typeof raw === 'number' ? raw : Number(String(raw).trim());
+  return Number.isInteger(value) && value >= 0 && value <= 24 * 60 ? value : null;
+}
+function bufferSuffix(source) {
+  const buffer = Number(source?.bufferMinutes ?? 0);
+  return buffer > 0 ? ` ＋${buffer}` : '';
+}
+function bookingTimeLabel(source) {
+  return `${source.time}–${endTime(source.time, source.duration)}${bufferSuffix(source)}`;
+}
+function cssPercent(value) {
+  return `${Math.round(Number(value) * 1000) / 1000}%`;
 }
 function spaceName(space) { return SPACE_NAMES[Number(space) - 1] || `空間 ${space}`; }
 function isAdminSpace(space) { return Number(space) === 1; }
@@ -154,18 +179,22 @@ function normalizeBookings(value) {
       const owner = storedOwner === 'admin' ? '老闆' : storedOwner;
       const time = typeof item.time === 'string' ? item.time.trim() : '';
       const kind = ['admin', 'coach', 'team'].includes(item.kind) ? item.kind : (space === 1 ? 'admin' : 'coach');
-      const slot = timeToSlot(time);
+      const startMinute = timeToMinute(time);
+      const buffer = bookingBufferMinutes(item);
       const valid = id
         && Number.isInteger(space) && space >= 1 && space <= SPACES
         && owner
-        && TIME_PATTERN.test(time)
-        && Number.isFinite(duration) && duration > 0 && duration % SLOT_MINUTES === 0
-        && Number.isInteger(slot) && validateRange(slot, duration, space)
-        && isAllowedBookingDuration(space, duration)
+        && startMinute != null
+        && buffer !== null
+        && Number.isFinite(duration) && duration > 0
+        && validateBookingTimeRange(space, kind, startMinute, duration, buffer)
+        && isAllowedBookingDuration(space, duration, buffer, kind)
         && (kind !== 'team' || isTeamSpace(space))
         && (item.draft === undefined || (item.draft === true && space === 1 && kind === 'admin'));
       if (!valid) { ignoredCount++; continue; }
       const normalized = { ...item, id, date, space, owner, kind, time, duration };
+      if (buffer > 0) normalized.bufferMinutes = buffer;
+      else delete normalized.bufferMinutes;
       if (item.draft === true) normalized.draft = true;
       if (item.nickname != null) normalized.nickname = String(item.nickname);
       if (item.remark != null) normalized.remark = String(item.remark);
@@ -211,32 +240,57 @@ function canEditBooking(booking) {
 }
 function canDeleteBooking(booking) { return canEditBooking(booking); }
 function canUseKind(kind, space) { return kind !== 'team' || isTeamSpace(space); }
-function overlaps(startA, durationA, startB, durationB) {
-  const a1 = timeToSlot(startA), a2 = a1 + durationToSlots(durationA);
-  const b1 = timeToSlot(startB), b2 = b1 + durationToSlots(durationB);
-  return a1 < b2 && a2 > b1;
+// 課程本身的時間重疊（不含緩衝；用於「行政×教學重疊」通知判定）
+function coursesOverlap(a, b) {
+  const aStart = timeToMinute(a?.time);
+  const bStart = timeToMinute(b?.time);
+  if (aStart == null || bStart == null) return false;
+  const aEnd = aStart + Number(a?.duration ?? 0);
+  const bEnd = bStart + Number(b?.duration ?? 0);
+  return aStart < bEnd && aEnd > bStart;
 }
-function conflictingBooking(list, space, time, duration, excludeIds = [], owner, kind) {
+// 有效區間＝開始時間＋課程時長＋課後緩衝；緩衝期間視為佔用
+function bookingsOverlap(a, b) {
+  const aStart = timeToMinute(a?.time);
+  const bStart = timeToMinute(b?.time);
+  if (aStart == null || bStart == null) return false;
+  const aEnd = aStart + Number(a?.duration ?? 0) + Number(a?.bufferMinutes ?? 0);
+  const bEnd = bStart + Number(b?.duration ?? 0) + Number(b?.bufferMinutes ?? 0);
+  return aStart < bEnd && aEnd > bStart;
+}
+function conflictingBooking(list, space, candidate, excludeIds = [], kind) {
   return list.find(b => {
     if (!b || excludeIds.includes(b.id)) return false;
     if (Number(b.space) !== Number(space)) return false;
     if (kind === 'team' && b.kind === 'team' && b.groupId && excludeIds.some(id => id === b.id)) return false;
-    return overlaps(time, duration, b.time, b.duration);
+    return bookingsOverlap(candidate, b);
   }) || null;
 }
-function conflictingOwner(list, time, duration, excludeIds = [], owner, nickname, kind) {
-  const ownerIdentity = bookingOwnerIdentity({ owner, nickname });
+function conflictingOwner(list, candidate, excludeIds = [], kind) {
+  const ownerIdentity = bookingOwnerIdentity(candidate);
   if (!ownerIdentity) return null;
   return list.find(b => {
     if (!b || excludeIds.includes(b.id)) return false;
     if (bookingOwnerIdentity(b) !== ownerIdentity) return false;
     if (isAdminTeachingOverlapPair(bookingKindForOverlap({ kind }), bookingKindForOverlap(b))) return false;
-    return overlaps(time, duration, b.time, b.duration);
+    return bookingsOverlap(candidate, b);
   }) || null;
 }
-function validateRange(slot, duration, space) {
-  if (isAdminSpace(space)) return slot >= 0 && slot + durationToSlots(duration) <= SLOTS_PER_DAY;
-  return isBookingStartInDayRange(slotToTime(slot)) && isBookingEndWithinNightLimit(slot, duration);
+// 時間範圍驗證：教練課 5 分鐘步進、團課／行政 15 分鐘；行政限 22:00 前結束，
+// 非行政不得跨午夜（含緩衝），且最晚 21:55 開始
+function validateBookingTimeRange(space, kind, startMinute, courseMinutes, bufferMinutes) {
+  if (!Number.isFinite(startMinute) || !Number.isFinite(courseMinutes)) return false;
+  const buffer = Number.isFinite(bufferMinutes) ? bufferMinutes : 0;
+  if (isAdminSpace(space)) {
+    return startMinute >= 0
+      && startMinute % SLOT_MINUTES === 0
+      && startMinute + courseMinutes <= SLOTS_PER_DAY * SLOT_MINUTES;
+  }
+  const step = kind === 'team' ? SLOT_MINUTES : 5;
+  return startMinute >= 0
+    && startMinute % step === 0
+    && startMinute < SLOTS_PER_DAY * SLOT_MINUTES
+    && startMinute + courseMinutes + buffer <= NIGHT_LIMIT_MINUTE;
 }
 
 function captureScheduleScroll() {
@@ -309,7 +363,7 @@ function openAdminContextMenu(event, items) {
 }
 function copyAdminBooking(booking) {
   adminBookingClipboard = { ...booking };
-  showToast(`📋 已複製 ${booking.date} ${booking.time}–${endTime(booking.time, booking.duration)} ${ownerLabel(booking)}行政時段`);
+  showToast(`📋 已複製 ${booking.date} ${bookingTimeLabel(booking)} ${ownerLabel(booking)}行政時段`);
 }
 async function pasteAdminBooking(dateKey) {
   if (!adminBookingClipboard) {
@@ -334,7 +388,7 @@ async function pasteAdminBooking(dateKey) {
   try {
     const ok = await persistChanges(dateKey, prepared.mutation);
     if (!ok) return;
-    showToast(`✅ 已貼上 ${prepared.booking.time}–${endTime(prepared.booking.time, prepared.booking.duration)} ${ownerLabel(prepared.booking)}行政時段`);
+    showToast(`✅ 已貼上 ${bookingTimeLabel(prepared.booking)} ${ownerLabel(prepared.booking)}行政時段`);
     renderCurrentView();
   } finally {
     mutationInProgress = false;
@@ -342,7 +396,7 @@ async function pasteAdminBooking(dateKey) {
 }
 function copyCoachBooking(booking) {
   coachBookingClipboard = { ...booking };
-  showToast(`📋 已複製 ${booking.date} ${booking.time}–${endTime(booking.time, booking.duration)} ${ownerLabel(booking)}教練課`);
+  showToast(`📋 已複製 ${booking.date} ${bookingTimeLabel(booking)} ${ownerLabel(booking)}教練課`);
 }
 async function pasteCoachBooking(dateKey) {
   if (!coachBookingClipboard) {
@@ -371,7 +425,7 @@ async function pasteCoachBooking(dateKey) {
   try {
     const ok = await persistChanges(dateKey, prepared.mutation);
     if (!ok) return;
-    showToast(`✅ 已貼上 ${prepared.booking.time}–${endTime(prepared.booking.time, prepared.booking.duration)} ${ownerLabel(prepared.booking)}教練課`);
+    showToast(`✅ 已貼上 ${bookingTimeLabel(prepared.booking)} ${ownerLabel(prepared.booking)}教練課`);
     renderCurrentView();
   } finally {
     mutationInProgress = false;
@@ -624,6 +678,7 @@ async function notifyNewBookings(records, operator) {
       date: record.date,
       time: record.time,
       duration: record.duration,
+      bufferMinutes: record.bufferMinutes,
       space: record.space,
       createdAt: Date.now(),
     });
@@ -640,7 +695,7 @@ async function notifyTeachingAdminOverlap(records, operator) {
     const existing = candidateList.find(b => b && b.id !== record.id
       && bookingOwnerIdentity(b) === bookingOwnerIdentity(record)
       && isAdminTeachingOverlapPair(bookingKindForOverlap(record), bookingKindForOverlap(b))
-      && overlaps(record.time, record.duration, b.time, b.duration));
+      && coursesOverlap(record, b));
     if (!existing) continue;
     notified.add(owner);
     const existingLabel = existing.kind === 'admin' ? '行政時段' : (existing.kind === 'team' ? '團課' : '一般教練課');
@@ -649,7 +704,7 @@ async function notifyTeachingAdminOverlap(records, operator) {
       const message = buildInboxMessage({
         id: useFallback ? newId() : firebaseApi.push(firebaseApi.ref(db, INBOX_ROOT)).key,
         to, from: operator, kind: 'overlap',
-        date: record.date, time: record.time, duration: record.duration, space: record.space,
+        date: record.date, time: record.time, duration: record.duration, bufferMinutes: record.bufferMinutes, space: record.space,
         remark, createdAt: Date.now(),
       });
       await persistInboxMessage(to, message);
@@ -986,7 +1041,7 @@ function renderInboxView(main) {
       return `<li class="rs-inbox-item ${message.read !== true ? 'unread' : ''}" data-inbox-id="${escapeHtml(message.id)}" role="button" tabindex="0">
         <div class="rs-inbox-body">
           <div class="rs-inbox-line1">${unreadMark}<strong>${label}</strong> · ${spaceName(message.space)}</div>
-          <div class="rs-inbox-line2">📅 ${formatDateCN(parseDate(message.date))} ${message.time}–${endTime(message.time, message.duration)}</div>
+          <div class="rs-inbox-line2">📅 ${formatDateCN(parseDate(message.date))} ${message.time}–${endTime(message.time, message.duration)}${bufferSuffix(message)}</div>
           <div class="rs-inbox-line3">由 ${escapeHtml(message.from)} 安排${message.remark ? ` · ${escapeHtml(message.remark)}` : ''}</div>
         </div>
         <button type="button" class="rs-inbox-delete" data-inbox-delete="${escapeHtml(message.id)}" aria-label="刪除這則訊息" title="刪除訊息">🗑️</button>
@@ -1068,7 +1123,7 @@ function monthDayHtml(date, other) {
   const items = closed ? [] : (other ? [] : monthBookingsForUser(key));
   const content = closed
     ? '<div class="rs-closed-note">休館日</div>'
-    : (items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${escapeHtml(ownerLabel(b))}｜${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : ''));
+    : (items.length ? items.map(b => `<div class="rs-day-item ${b.kind === 'team' ? 'team' : (isAdminSpace(b.space) ? 'admin' : 'coach')} ${ownerColorClass(b.owner)}${b.draft === true ? ' draft' : ''}" data-booking-id="${escapeHtml(b.id)}"><strong>${escapeHtml(ownerLabel(b))}｜${courseLabel(b)}：</strong>${escapeHtml(b.time)}–${escapeHtml(endTime(b.time, b.duration))}${escapeHtml(bufferSuffix(b))}${b.draft === true ? ' 📝預排' : ''}${b.remark ? `<br>📝 ${escapeHtml(b.remark)}` : ''}</div>`).join('') : (!other ? '<div class="rs-day-empty">尚無排課</div>' : ''));
   return `<div class="${classes.join(' ')}" data-date="${key}"><div class="rs-day-number">${date.getDate()}</div>${content}</div>`;
 }
 function statsForOwner(owner, year, month) {
@@ -1473,7 +1528,7 @@ function dragGroupIds(booking, dateKey) {
 function createDragGhost(booking) {
   const ghost = document.createElement('div');
   ghost.className = `rs-drag-ghost ${ownerColorClass(booking.owner)}`;
-  ghost.innerHTML = `<strong>${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}</strong><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))} · ${escapeHtml(spaceName(booking.space))}</small>`;
+  ghost.innerHTML = `<strong>${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}</strong><small>${escapeHtml(bookingTimeLabel(booking))} · ${escapeHtml(spaceName(booking.space))}</small>`;
   document.body.appendChild(ghost);
   return ghost;
 }
@@ -1482,7 +1537,7 @@ function positionDragGhost(ghost, x, y) {
   ghost.style.left = `${x + 12}px`;
   ghost.style.top = `${y + 12}px`;
 }
-function dayDragTarget(container, clientX, clientY) {
+function dayDragTarget(container, clientX, clientY, stepMinutes = 5) {
   const table = $('.rs-day-table', container);
   if (!table) return null;
   const rows = $$('tbody tr', table);
@@ -1490,20 +1545,21 @@ function dayDragTarget(container, clientX, clientY) {
   if (!rows.length || headerCells.length < 2) return null;
   const firstRect = rows[0].getBoundingClientRect();
   const lastRect = rows[rows.length - 1].getBoundingClientRect();
-  const slot = resolveDropSlot({
+  const minute = resolveDropMinutes({
     clientY,
     firstTop: firstRect.top,
     lastBottom: lastRect.bottom,
     rowHeight: firstRect.height,
-    slotCount: SLOTS_PER_DAY,
+    totalMinutes: SLOTS_PER_DAY * SLOT_MINUTES,
+    stepMinutes,
   });
-  if (slot == null) return null;
+  if (minute == null) return null;
   const space = resolveDropSpace({
     clientX,
     rects: headerCells.slice(1).map(cell => cell.getBoundingClientRect()),
   });
   if (!space) return null;
-  return { slot, space };
+  return { minute, space };
 }
 function monthDragTarget(clientX, clientY) {
   const element = document.elementFromPoint(clientX, clientY);
@@ -1512,20 +1568,21 @@ function monthDragTarget(clientX, clientY) {
   const dateKey = cell.dataset.date;
   return dateKey ? { dateKey, cell } : null;
 }
-function evaluatePlacement({ booking, dateKey, slot, space, excludeIds }) {
+function evaluatePlacement({ booking, dateKey, minute, space, excludeIds }) {
   if (isDateClosed(dateKey)) return { reason: '休館日無法搬移排課' };
   const kind = booking.kind || 'coach';
   const targetSpace = kind === 'team' ? Number(booking.space) : Number(space);
+  const buffer = bookingBufferMinutes(booking) ?? 0;
   if (isAdminSpace(targetSpace)) return { reason: '行政時段只有管理員可以安排' };
-  if (!validateRange(slot, booking.duration, targetSpace)) return { reason: '超出可排課時間（最晚到午夜）' };
-  const time = slotToTime(slot);
+  if (!validateBookingTimeRange(targetSpace, kind, minute, booking.duration, buffer)) return { reason: '超出可排課時間（最晚到午夜）' };
+  const candidate = { time: minuteToTime(minute), duration: booking.duration, bufferMinutes: buffer, owner: booking.owner, nickname: booking.nickname };
   const list = allBookingsForDate(dateKey);
   for (const target of targetSpaces(kind, targetSpace)) {
     if (isAdminSpace(target)) continue;
-    const conflict = conflictingBooking(list, target, time, booking.duration, excludeIds, booking.owner, kind);
+    const conflict = conflictingBooking(list, target, candidate, excludeIds, kind);
     if (conflict) return { reason: `${spaceName(target)} 在此時段已有 ${ownerLabel(conflict)} 的排課` };
   }
-  const ownerConflict = conflictingOwner(list, time, booking.duration, excludeIds, booking.owner, booking.nickname, kind);
+  const ownerConflict = conflictingOwner(list, candidate, excludeIds, kind);
   if (ownerConflict) return { reason: `${booking.owner} 在此時段已有其他排課` };
   return { reason: '' };
 }
@@ -1533,12 +1590,14 @@ function evaluateDateChange(booking, targetDateKey, excludeIds) {
   if (targetDateKey === booking.date) return { reason: '' };
   if (isDateClosed(targetDateKey)) return { reason: '目標日期是休館日' };
   const kind = booking.kind || 'coach';
+  const buffer = bookingBufferMinutes(booking) ?? 0;
+  const candidate = { time: booking.time, duration: booking.duration, bufferMinutes: buffer, owner: booking.owner, nickname: booking.nickname };
   const list = allBookingsForDate(targetDateKey);
   for (const target of targetSpaces(kind, Number(booking.space))) {
-    const conflict = conflictingBooking(list, target, booking.time, booking.duration, excludeIds, booking.owner, kind);
+    const conflict = conflictingBooking(list, target, candidate, excludeIds, kind);
     if (conflict) return { reason: `${spaceName(target)} 在此時段已有 ${ownerLabel(conflict)} 的排課` };
   }
-  const ownerConflict = conflictingOwner(list, booking.time, booking.duration, excludeIds, booking.owner, booking.nickname, kind);
+  const ownerConflict = conflictingOwner(list, candidate, excludeIds, kind);
   if (ownerConflict) return { reason: `${booking.owner} 在此時段已有其他排課` };
   return { reason: '' };
 }
@@ -1553,14 +1612,16 @@ function drawDropOverlay(drag, target) {
   const spaces = targetSpaces(booking.kind || 'coach', target.space);
   const leftRect = headerCells[Math.min(...spaces)]?.getBoundingClientRect();
   const rightRect = headerCells[Math.max(...spaces)]?.getBoundingClientRect();
-  const topRect = rows[target.slot]?.getBoundingClientRect();
+  const rowIndex = Math.floor(target.minute / SLOT_MINUTES);
+  const topRect = rows[rowIndex]?.getBoundingClientRect();
   if (!leftRect || !rightRect || !topRect || !rowHeight) return;
   const wrapRect = wrap.getBoundingClientRect();
+  const offsetPx = (target.minute % SLOT_MINUTES) / SLOT_MINUTES * rowHeight;
   overlay.style.left = `${leftRect.left - wrapRect.left + wrap.scrollLeft}px`;
-  overlay.style.top = `${topRect.top - wrapRect.top + wrap.scrollTop}px`;
+  overlay.style.top = `${topRect.top - wrapRect.top + wrap.scrollTop + offsetPx}px`;
   overlay.style.width = `${rightRect.right - leftRect.left}px`;
-  overlay.style.height = `${rowHeight * Math.max(1, durationToSlots(booking.duration))}px`;
-  overlay.textContent = slotToTime(target.slot);
+  overlay.style.height = `${(rowHeight / SLOT_MINUTES) * Math.max(1, Number(booking.duration) + (bookingBufferMinutes(booking) ?? 0))}px`;
+  overlay.textContent = minuteToTime(target.minute);
 }
 function clearDragVisuals(drag) {
   drag.ghost?.remove();
@@ -1585,7 +1646,7 @@ function beginBookingDrag(event, booking, element, dateKey, container, mode) {
     mode, booking, element, dateKey, container, pointerId: event.pointerId,
     startX: event.clientX, startY: event.clientY, active: false, target: null, reason: '',
   };
-  element.setPointerCapture?.(event.pointerId);
+  try { element.setPointerCapture?.(event.pointerId); } catch { /* 無效 pointerId（合成事件）時忽略 */ }
   window.addEventListener('pointermove', moveBookingDrag, { passive: false });
   window.addEventListener('pointerup', endBookingDrag);
   window.addEventListener('pointercancel', cancelBookingDrag);
@@ -1607,11 +1668,12 @@ function moveBookingDrag(event) {
   event.preventDefault();
   positionDragGhost(drag.ghost, event.clientX, event.clientY);
   if (drag.mode === 'day') {
-    const target = dayDragTarget(drag.container, event.clientX, event.clientY);
+    const step = (drag.booking.kind || 'coach') === 'team' ? SLOT_MINUTES : 5;
+    const target = dayDragTarget(drag.container, event.clientX, event.clientY, step);
     drag.target = target;
     if (!target) return;
     const verdict = evaluatePlacement({
-      booking: drag.booking, dateKey: drag.dateKey, slot: target.slot, space: target.space,
+      booking: drag.booking, dateKey: drag.dateKey, minute: target.minute, space: target.space,
       excludeIds: dragGroupIds(drag.booking, drag.dateKey),
     });
     drag.reason = verdict.reason;
@@ -1654,9 +1716,9 @@ async function endBookingDrag(event) {
       if (!target) { showToast('⚠️ 請拖曳到表格內的時段再放開'); return; }
       const kind = booking.kind || 'coach';
       const space = kind === 'team' ? Number(booking.space) : Number(target.space);
-      const time = slotToTime(target.slot);
+      const time = minuteToTime(target.minute);
       if (Number(booking.space) === space && booking.time === time) return;
-      const verdict = evaluatePlacement({ booking, dateKey: drag.dateKey, slot: target.slot, space: target.space, excludeIds: dragGroupIds(booking, drag.dateKey) });
+      const verdict = evaluatePlacement({ booking, dateKey: drag.dateKey, minute: target.minute, space: target.space, excludeIds: dragGroupIds(booking, drag.dateKey) });
       if (verdict.reason) { showToast(`⚠️ ${verdict.reason}`); return; }
       const confirmed = await confirmBookingMove({
         booking,
@@ -1688,10 +1750,10 @@ function confirmBookingMove({ booking, from, to }) {
   return new Promise(resolve => {
     const host = $('#rs-modal-host');
     if (!host) { resolve(false); return; }
-    const line = (label, dateKey, time, space) => `${label}：${formatDateCN(parseDate(dateKey))} ${time}–${endTime(time, booking.duration)} · ${spaceName(space)}`;
+    const line = (label, dateKey, time, space) => `${label}：${formatDateCN(parseDate(dateKey))} ${time}–${endTime(time, booking.duration)}${bufferSuffix(booking)} · ${spaceName(space)}`;
     host.innerHTML = `<div class="rs-modal-overlay" id="rs-move-overlay" role="dialog" aria-modal="true" aria-labelledby="rs-move-title"><div class="rs-modal rs-move-confirm">
       <h2 id="rs-move-title">確認搬移排課？</h2>
-      <div class="rs-modal-sub">${escapeHtml(ownerLabel(booking))} · ${escapeHtml(courseLabel(booking))} · ${escapeHtml(String(booking.duration))} 分鐘</div>
+      <div class="rs-modal-sub">${escapeHtml(ownerLabel(booking))} · ${escapeHtml(courseLabel(booking))} · ${escapeHtml(`${booking.duration} 分鐘${bufferSuffix(booking)}`)}</div>
       <div class="rs-info-box"><div class="rs-move-from">${escapeHtml(line('原', from.dateKey, from.time, from.space))}</div><div class="rs-move-to">${escapeHtml(line('新', to.dateKey, to.time, to.space))}</div></div>
       <div class="rs-modal-actions"><button type="button" class="rs-secondary" id="rs-move-cancel">取消（回原位）</button><button type="button" class="rs-primary" id="rs-move-ok">確定搬移</button></div>
     </div></div>`;
@@ -1791,7 +1853,7 @@ function attachMonthDrag(main) {
         continue;
       }
       const booking = bookingIndex.get(space)?.[slot];
-      if (booking && timeToSlot(booking.time) !== slot) continue;
+      if (booking && Math.floor((timeToMinute(booking.time) ?? 0) / SLOT_MINUTES) !== slot) continue;
       if (!booking) {
         const clickable = canCreateAt(space, dateKey);
         html += `<td class="rs-slot empty" ${clickable ? `data-create-space="${space}" data-create-slot="${slot}"` : 'title="只有管理員可以編輯行政時段"'}></td>`;
@@ -1799,7 +1861,15 @@ function attachMonthDrag(main) {
       }
       const display = `${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}`;
       const remark = booking.remark ? `<div class="rs-remark">📝 ${escapeHtml(booking.remark)}</div>` : '';
-      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}" rowspan="${dayBookingRowspan(booking.time, booking.duration, SLOTS_PER_DAY)}" data-booking-id="${escapeHtml(booking.id)}"><div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))}</small>${remark}${creatorNoteHtml(booking)}</td>`;
+      const buffer = Number(booking.bufferMinutes ?? 0);
+      const rowspan = Math.max(1, dayBookingRowspan(booking.time, booking.duration, SLOTS_PER_DAY));
+      const startMinute = timeToMinute(booking.time) ?? 0;
+      const cardPx = rowspan * SLOT_ROW_HEIGHT_PX;
+      const spacerPx = Math.min((startMinute % SLOT_MINUTES) * PX_PER_MINUTE, cardPx);
+      const mainPx = Math.max(0, Math.min(Number(booking.duration) * PX_PER_MINUTE, cardPx - spacerPx));
+      const tailHtml = buffer > 0 ? `<div class="rs-card-tail" style="height:${buffer * PX_PER_MINUTE}px"></div>` : '';
+      const bufferBadge = buffer > 0 ? `<span class="rs-buffer-badge">＋${buffer}</span>` : '';
+      html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}${buffer > 0 ? ' has-buffer' : ''}${startMinute % SLOT_MINUTES !== 0 ? ' off-grid' : ''}" rowspan="${rowspan}" data-booking-id="${escapeHtml(booking.id)}"><div class="rs-card"><div class="rs-card-spacer" style="height:${spacerPx}px"></div><div class="rs-card-main" style="height:${mainPx}px">${bufferBadge}<div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(endTime(booking.time, booking.duration))}</small>${remark}${creatorNoteHtml(booking)}</div>${tailHtml}</div></td>`;
     }
     html += '</tr>';
   }
@@ -1818,14 +1888,14 @@ function attachMonthDrag(main) {
   attachBookingDrag(main, dayBookings, dateKey);
   $('[data-toggle-closed-day]', main)?.addEventListener('click', () => toggleClosedDay(dateKey));
 }
-function buildModal(mode, booking, space, slot, dateKey) {
+function buildModal(mode, booking, space, slot, dateKey, minute) {
   const editing = mode === 'edit';
   const owner = editing ? booking.owner : (SCHEDULABLE_USERS.includes(currentUser.name) ? currentUser.name : SCHEDULABLE_USERS[0]);
   const kind = editing ? (booking.kind || (isAdminSpace(space) ? 'admin' : 'coach')) : (isAdminSpace(space) ? 'admin' : 'coach');
   const durations = isAdminSpace(space) ? ADMIN_DURATIONS : coachDurationOptions();
-  const fallbackDuration = isAdminSpace(space) ? 90 : DEFAULT_COACH_DURATION;
-  const storedDuration = editing ? Number(booking.duration) : fallbackDuration;
-  // 舊時長（例如 60 分鐘）不在選項中時，顯示現行預設時長；儲存後即以顯示值為準
+  const fallbackDuration = isAdminSpace(space) ? 90 : DEFAULT_COACH_DURATION_VALUE;
+  // 既有排課 → 選項值（60＋X 照實、舊 75 視為 60＋15、90 不變）；無法對應時顯示預設值
+  const storedDuration = editing ? (isAdminSpace(space) ? Number(booking.duration) : (coachDurationValueFor(booking) ?? fallbackDuration)) : fallbackDuration;
   const duration = durations.includes(storedDuration) ? storedDuration : fallbackDuration;
   const owners = ownerChoices();
   const selectedOwner = owners.includes(owner) ? owner : owners[0];
@@ -1833,9 +1903,9 @@ function buildModal(mode, booking, space, slot, dateKey) {
   const kindOptions = isAdminSpace(space)
     ? '<option value="admin" selected>行政</option>'
     : `<option value="coach" ${kind === 'coach' ? 'selected' : ''}>一般教練課</option>${canChangeKind ? `<option value="team" ${kind === 'team' ? 'selected' : ''}>團課</option>` : ''}`;
-  const timeValue = String((editing ? booking.time : slotToTime(slot)) ?? '').trim();
+  const timeValue = String((editing ? booking.time : minuteToTime(minute ?? slot * SLOT_MINUTES)) ?? '').trim();
   const title = editing ? '修改／取消排課' : '新增排課';
-  const info = editing ? `${spaceName(booking.space)} · ${booking.time}–${endTime(booking.time, booking.duration)} · ${ownerLabel(booking)}${booking.kind === 'team' ? '（團課）' : ''}` : `${spaceName(space)} · ${slotToTime(slot)} · ${formatDateCN(parseDate(dateKey))}`;
+  const info = editing ? `${spaceName(booking.space)} · ${bookingTimeLabel(booking)} · ${ownerLabel(booking)}${booking.kind === 'team' ? '（團課）' : ''}` : `${spaceName(space)} · ${minuteToTime(minute ?? slot * SLOT_MINUTES)} · ${formatDateCN(parseDate(dateKey))}`;
   const showDraftButton = !editing && isBossManager() && isAdminSpace(space);
   return `<div class="rs-modal-overlay" id="rs-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rs-modal-title"><form class="rs-modal" id="rs-booking-form">
     <button type="button" class="rs-modal-close" id="rs-modal-close" aria-label="關閉排課視窗">✕</button><h2 id="rs-modal-title">${title}</h2><div class="rs-modal-sub">${escapeHtml(info)}</div>
@@ -1845,11 +1915,53 @@ function buildModal(mode, booking, space, slot, dateKey) {
     <label for="rs-kind">課程類型</label><select id="rs-kind" ${canChangeKind ? '' : 'disabled'}>${kindOptions}</select>
     <div id="rs-team-note" class="rs-permission-note ${kind === 'team' ? '' : 'rs-hidden'}">團課會同時佔用二樓自由重量(1)、二樓自由重量(2)、二樓機動空間。</div>
     ${editing ? `<label for="rs-date">📅 日期</label><input type="date" id="rs-date" value="${escapeHtml(booking.date)}">` : ''}
-    <label for="rs-time">🕘 開始時間</label><select id="rs-time">${timeChoices(timeValue).map(item => `<option value="${item}" ${item === timeValue ? 'selected' : ''}>${item}</option>`).join('')}</select>
-    <label for="rs-duration">課程時長</label><select id="rs-duration">${durations.map(item => `<option value="${item}" ${item === duration ? 'selected' : ''}>${isAdminSpace(space) ? `${item / 60} 小時` : `${item} 分鐘`}</option>`).join('')}</select>
+    <label for="rs-time">🕘 開始時間</label><select id="rs-time">${timeChoices(timeValue, { stepMinutes: isAdminSpace(space) ? SLOT_MINUTES : 5 }).map(item => `<option value="${item}" ${item === timeValue ? 'selected' : ''}>${item}</option>`).join('')}</select>
+    <label for="rs-duration">課程時長</label><select id="rs-duration">${durations.map(item => `<option value="${item}" ${item === duration ? 'selected' : ''}>${isAdminSpace(space) ? `${item / 60} 小時` : durationOptionLabel(item)}</option>`).join('')}</select>
     <label for="rs-remark">📝 備註</label><input id="rs-remark" value="${escapeHtml(editing ? (booking.remark || '') : '')}" placeholder="選填，例如：體驗課、調整姿勢">
     <div class="rs-modal-actions"><button type="button" class="rs-secondary" id="rs-modal-cancel">關閉</button>${editing && canDeleteBooking(booking) ? '<button type="button" class="rs-danger-btn" id="rs-delete">取消排課</button>' : ''}${showDraftButton ? '<button type="button" class="rs-draft-btn" id="rs-draft-submit">📝 預排班</button>' : ''}<button type="submit" class="rs-primary">${editing ? '確認修改' : '確認預約'}</button></div>
   </form></div>`;
+}
+function durationOptionLabel(value) {
+  const parsed = parseCoachDurationValue(value);
+  if (!parsed) return `${value} 分鐘`;
+  return parsed.buffer > 0 ? `${parsed.duration} 分鐘＋${parsed.buffer} 分鐘緩衝` : `${parsed.duration} 分鐘`;
+}
+function snapTimeSelectForKind(kind) {
+  if (kind !== 'team') return;
+  const select = $('#rs-time');
+  const minute = timeToMinute(select?.value);
+  if (minute == null || minute % SLOT_MINUTES === 0) return;
+  const snapped = Math.min(Math.ceil(minute / SLOT_MINUTES) * SLOT_MINUTES, SLOTS_PER_DAY * SLOT_MINUTES - SLOT_MINUTES);
+  select.value = minuteToTime(snapped);
+}
+// 新增排課推薦時間：原格起點被既有課（含緩衝）覆蓋，或當格／前一格出現非 15 分鐘對齊的
+// 佔用時，改往前找最近的 5 分鐘可排格；否則維持原本格線時間
+function recommendCreateMinute(space, slot, dateKey) {
+  const baseMinute = slot * SLOT_MINUTES;
+  if (isAdminSpace(space)) return baseMinute;
+  const list = allBookingsForDate(dateKey).filter(b => !isAdminSpace(b.space) && Number(b.space) === Number(space));
+  const covered = minute => list.some(b => {
+    const start = timeToMinute(b.time);
+    if (start == null) return false;
+    const end = start + Number(b.duration ?? 0) + Number(b.bufferMinutes ?? 0);
+    return minute >= start && minute < end;
+  });
+  const offGrid = hasOffGridBookingBoundary(list, { from: baseMinute - SLOT_MINUTES, to: baseMinute + SLOT_MINUTES });
+  if (!offGrid && !covered(baseMinute)) return baseMinute;
+  // 推薦點至少需容納最小時長（60 分鐘），避免推在必衝突的破碎空檔
+  const rangeFits = minute => !list.some(b => {
+    const start = timeToMinute(b.time);
+    if (start == null) return false;
+    const end = start + Number(b.duration ?? 0) + Number(b.bufferMinutes ?? 0);
+    return minute < end && minute + MIN_COACH_MINUTES > start;
+  });
+  const found = findNearestStart({
+    from: Math.max(0, baseMinute - SLOT_MINUTES),
+    maxFrom: SLOTS_PER_DAY * SLOT_MINUTES - 5,
+    step: 5,
+    canPlace: minute => !covered(minute) && rangeFits(minute),
+  });
+  return found ?? baseMinute;
 }
 function openCreateModal(space, slot, dateKey, triggerElement = null) {
   if (!canCreateAt(space, dateKey)) {
@@ -1857,7 +1969,8 @@ function openCreateModal(space, slot, dateKey, triggerElement = null) {
     return;
   }
   lastModalTrigger = triggerElement || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-  modalState = { mode: 'create', space, slot, dateKey };
+  const minute = recommendCreateMinute(space, slot, dateKey);
+  modalState = { mode: 'create', space, slot, minute, dateKey };
   mountModal();
 }
 function openEditModal(booking, dateKey, triggerElement = null) {
@@ -1874,7 +1987,8 @@ function openEditModal(booking, dateKey, triggerElement = null) {
     booking,
     originalRecords: originalRecords.map(item => ({ ...item })),
     space: Number(booking.space),
-    slot: timeToSlot(booking.time),
+    slot: Math.floor((timeToMinute(booking.time) ?? 0) / SLOT_MINUTES),
+    minute: timeToMinute(booking.time) ?? 0,
     dateKey,
   };
   mountModal();
@@ -1882,7 +1996,7 @@ function openEditModal(booking, dateKey, triggerElement = null) {
 function mountModal() {
   const host = $('#rs-modal-host');
   const state = modalState;
-  host.innerHTML = buildModal(state.mode, state.booking, state.space, state.slot, state.dateKey);
+  host.innerHTML = buildModal(state.mode, state.booking, state.space, state.slot, state.dateKey, state.minute);
   const overlay = $('#rs-modal-overlay');
   const form = $('#rs-booking-form');
   $('#rs-modal-close').addEventListener('click', closeModal);
@@ -1892,7 +2006,10 @@ function mountModal() {
   const nicknameRow = $('#rs-nickname-row');
   owner.addEventListener('change', () => nicknameRow.classList.toggle('rs-hidden', owner.value !== OTHER_OWNER));
   const kind = $('#rs-kind');
-  kind.addEventListener('change', () => $('#rs-team-note').classList.toggle('rs-hidden', kind.value !== 'team'));
+  kind.addEventListener('change', () => {
+    $('#rs-team-note').classList.toggle('rs-hidden', kind.value !== 'team');
+    snapTimeSelectForKind(kind.value);
+  });
   form.addEventListener('submit', async event => {
     event.preventDefault();
     try { await submitBooking(); }
@@ -1942,14 +2059,20 @@ function readModalValues() {
   const dateField = $('#rs-date');
   const timeField = $('#rs-time');
   const time = String(timeField?.value ?? '').trim();
+  const durationValue = String($('#rs-duration').value ?? '');
+  const parsed = isAdminSpace(modalState?.space) ? null : parseCoachDurationValue(durationValue);
   return {
     owner: $('#rs-owner').value, nickname: $('#rs-nickname').value.trim(), kind: $('#rs-kind').value,
-    duration: Number($('#rs-duration').value), remark: $('#rs-remark').value.trim(),
-    dateKey: dateField ? String(dateField.value).trim() : '', time, slot: time ? timeToSlot(time) : NaN,
+    duration: parsed ? parsed.duration : Number(durationValue),
+    bufferMinutes: parsed ? parsed.buffer : 0,
+    durationValue, remark: $('#rs-remark').value.trim(),
+    dateKey: dateField ? String(dateField.value).trim() : '', time,
+    startMinute: time ? timeToMinute(time) : null,
   };
 }
-function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, remark, time, groupId, draft = false, createdBy }) {
+function makeBooking({ id, dateKey, space, owner, nickname, kind, duration, bufferMinutes = 0, remark, time, groupId, draft = false, createdBy }) {
   const result = { id, date: dateKey, space: Number(space), owner, kind, duration: Number(duration), time, createdAt: Date.now() };
+  if (Number(bufferMinutes) > 0) result.bufferMinutes = Number(bufferMinutes);
   if (draft === true) result.draft = true;
   if (nickname) result.nickname = nickname;
   if (remark) result.remark = remark;
@@ -1964,10 +2087,17 @@ function validateBooking(values, state, existingIds = []) {
   if (values.kind === 'team' && !isTeamSpace(state.space)) return '團課只能安排在二樓自由重量區。';
   if (isAdminSpace(state.space) && values.kind !== 'admin') return '行政時段只能使用行政類型。';
   if (!isAdminSpace(state.space) && values.kind === 'admin') return '一般空間不能使用行政類型。';
-  if (!isAllowedBookingDuration(state.space, values.duration)) {
-    return isAdminSpace(state.space) ? '行政時段時長需為 30 至 240 分鐘。' : '課程時長僅支援 75 或 90 分鐘。';
+  const startMinute = Number(values.startMinute);
+  if (!Number.isFinite(startMinute)) return '開始時間不正確，請重新選擇。';
+  if (!isAdminSpace(state.space) && values.kind === 'team' && startMinute % SLOT_MINUTES !== 0) {
+    return '團課的開始時間需以 15 分鐘為單位。';
   }
-  if (!validateRange(state.slot, values.duration, state.space)) return '預約時段超過 22:00，請縮短課程或更換時間。';
+  if (!isAllowedBookingDuration(state.space, values.duration, values.bufferMinutes, values.kind)) {
+    return isAdminSpace(state.space) ? '行政時段時長需為 30 至 240 分鐘。' : '課程時長僅支援 60＋0／60＋5／60＋10／60＋15／90 分鐘。';
+  }
+  if (!validateBookingTimeRange(state.space, values.kind, startMinute, values.duration, values.bufferMinutes)) {
+    return '預約時段超出可排課範圍（最晚到午夜），請調整時間或時長。';
+  }
   const list = allBookingsForDate(state.dateKey);
   const spaces = targetSpaces(values.kind, state.space);
   if (isAdminSpace(state.space)) {
@@ -1975,16 +2105,21 @@ function validateBooking(values, state, existingIds = []) {
       const start = timeToSlot(booking.time);
       return { id: booking.id, start, end: start + durationToSlots(booking.duration) };
     });
-    if (wouldExceedAdminCapacity(adminBookings, state.slot, state.slot + durationToSlots(values.duration), existingIds)) {
+    const slotStart = startMinute / SLOT_MINUTES;
+    if (wouldExceedAdminCapacity(adminBookings, slotStart, slotStart + durationToSlots(values.duration), existingIds)) {
       return `行政時段同一時間最多安排 ${ADMIN_CAPACITY} 位教練。`;
     }
   }
+  const candidate = {
+    time: minuteToTime(startMinute), duration: values.duration, bufferMinutes: values.bufferMinutes,
+    owner: values.owner, nickname: values.nickname,
+  };
   for (const target of spaces) {
     if (isAdminSpace(target)) continue;
-    const conflict = conflictingBooking(list, target, slotToTime(state.slot), values.duration, existingIds, values.owner, values.kind);
+    const conflict = conflictingBooking(list, target, candidate, existingIds, values.kind);
     if (conflict) return `${spaceName(target)} 在此時段已有 ${ownerLabel(conflict)} 的排課。`;
   }
-  const ownerConflict = conflictingOwner(list, slotToTime(state.slot), values.duration, existingIds, values.owner, values.nickname, values.kind);
+  const ownerConflict = conflictingOwner(list, candidate, existingIds, values.kind);
   if (ownerConflict) return `${values.owner} 在此時段已有其他排課。`;
   return null;
 }
@@ -2001,7 +2136,8 @@ async function submitBooking() {
     return;
   }
   const values = readModalValues();
-  if (!Number.isInteger(values.slot) || values.slot < 0 || values.slot >= SLOTS_PER_DAY) {
+  if (values.startMinute == null || !Number.isFinite(values.startMinute)
+    || values.startMinute < 0 || values.startMinute > SLOTS_PER_DAY * SLOT_MINUTES - 5) {
     showToast('⚠️ 開始時間不正確，請重新選擇');
     return;
   }
@@ -2014,7 +2150,7 @@ async function submitBooking() {
   const oldGroup = state.mode === 'edit' ? state.booking.groupId : null;
   const oldRecords = state.mode === 'edit' ? (state.originalRecords || [state.booking]) : [];
   const oldIds = oldRecords.map(b => b.id);
-  const error = validateBooking(values, { ...state, dateKey: targetDateKey, slot: values.slot }, oldIds);
+  const error = validateBooking(values, { ...state, dateKey: targetDateKey, minute: values.startMinute }, oldIds);
   if (error) { showToast(`⚠️ ${error}`); return; }
   const submitAsDraft = state.submitAsDraft === true && isBossManager() && isAdminSpace(state.space);
   const draft = state.mode === 'edit' ? state.booking.draft === true : submitAsDraft;
@@ -2023,7 +2159,7 @@ async function submitBooking() {
   const records = spaces.map(space => makeBooking({
     id: state.mode === 'edit' && oldRecords.find(b => Number(b.space) === space) ? oldRecords.find(b => Number(b.space) === space).id : firebaseId(targetDateKey),
     dateKey: targetDateKey, space, owner: values.owner, nickname: values.owner === OTHER_OWNER ? values.nickname : '', kind: values.kind,
-    duration: values.duration, remark: values.remark, time: slotToTime(values.slot), groupId, draft,
+    duration: values.duration, bufferMinutes: values.bufferMinutes, remark: values.remark, time: minuteToTime(values.startMinute), groupId, draft,
     createdBy: state.mode === 'create' ? currentUser.name : undefined,
   }));
   const movePlan = dateChanged ? buildBookingMovePlanFromRecords({ records, originalRecords: oldRecords }) : null;
@@ -2049,7 +2185,7 @@ async function submitBooking() {
     renderCurrentView();
     restoreScheduleScroll(scrollSnapshot);
     showToast(dateChanged
-      ? `✅ 排課已搬到 ${formatDateCN(parseDate(targetDateKey))} ${slotToTime(values.slot)}`
+      ? `✅ 排課已搬到 ${formatDateCN(parseDate(targetDateKey))} ${minuteToTime(values.startMinute)}${bufferSuffix(values)}`
       : (state.mode === 'edit' ? '✅ 排課已修改' : (draft ? '📝 預排班已建立（僅老闆可見，尚未上線）' : '✅ 排課已建立')));
   } finally {
     mutationInProgress = false;

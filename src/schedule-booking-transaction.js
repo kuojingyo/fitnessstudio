@@ -1,5 +1,5 @@
 import { ADMIN_CAPACITY } from './admin-schedule-layout.js';
-import { ALLOWED_COACH_DURATIONS } from './schedule-booking-rules.js';
+import { ALLOWED_COACH_DURATIONS, isAllowedCoachDurationBuffer } from './schedule-booking-rules.js';
 
 const ADMIN_SPACE = 1;
 const OTHER_OWNER = '其他';
@@ -74,6 +74,14 @@ function normalizeCurrentDateNode(currentValue) {
   return { ok: true, value: normalized };
 }
 
+// 課後緩衝分鐘：缺省視為 0；畸形值回傳 null（呼叫端據此拒絕整筆資料）
+function bookingBufferMinutes(booking) {
+  const raw = booking?.bufferMinutes;
+  if (raw === undefined || raw === null || raw === '') return 0;
+  const value = typeof raw === 'number' ? raw : Number(String(raw).trim());
+  return Number.isInteger(value) && value >= 0 && value <= 24 * 60 ? value : null;
+}
+
 function bookingRangeMinutes(booking) {
   if (!booking) return null;
   const match = TIME_PATTERN.exec(String(booking.time || '').trim());
@@ -81,11 +89,14 @@ function bookingRangeMinutes(booking) {
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
   const duration = bookingDurationNumber(booking.duration);
+  const buffer = bookingBufferMinutes(booking);
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)
     || hours < 0 || hours > 23 || minutes < 0 || minutes > 59
-    || !Number.isInteger(duration) || duration <= 0) return null;
+    || !Number.isInteger(duration) || duration <= 0
+    || buffer === null) return null;
   const start = hours * 60 + minutes;
-  const end = start + duration;
+  // 有效區間＝課程時長＋課後緩衝：緩衝期間場地與教練仍視為佔用
+  const end = start + duration + buffer;
   return end > start ? { start, end } : null;
 }
 
@@ -123,12 +134,17 @@ function hasValidBookingRange(booking) {
   if (space === ADMIN_SPACE) return hasValidAdminRange(booking);
   const range = bookingRangeMinutes(booking);
   const duration = bookingDurationNumber(booking?.duration);
-  return !!range
-    && range.start >= OPEN_MINUTES
+  const buffer = bookingBufferMinutes(booking);
+  const kind = normalizedKind(booking);
+  if (!range || buffer === null) return false;
+  // 教練課以 5 分鐘為單位（60 可搭配緩衝）；團課維持 15 分鐘且不得帶緩衝
+  return range.start >= OPEN_MINUTES
     && range.start < CLOSE_MINUTES
     && range.end <= DAY_END_MINUTES
     && ALLOWED_COACH_DURATION_SET.has(duration)
-    && range.start % SLOT_MINUTES === 0
+    && isAllowedCoachDurationBuffer(duration, buffer)
+    && (kind !== 'team' || buffer === 0)
+    && range.start % (kind === 'team' ? SLOT_MINUTES : 5) === 0
     && duration % SLOT_MINUTES === 0;
 }
 
@@ -175,7 +191,7 @@ function setBooking(dateNode, booking) {
 
 function mergeBookingReplacement(currentBooking, replacement) {
   const merged = { ...currentBooking, ...replacement };
-  ['nickname', 'remark', 'groupId'].forEach(field => {
+  ['nickname', 'remark', 'groupId', 'bufferMinutes'].forEach(field => {
     if (!Object.hasOwn(replacement, field)) delete merged[field];
   });
   if (Object.hasOwn(replacement, 'draft')) {
@@ -226,6 +242,7 @@ function hasExpectedValues(booking, expected = {}) {
     if (key === 'owner') return normalizedOwner(booking?.[key]) === normalizedOwner(value);
     if (key === 'space') return bookingSpaceNumber(booking?.[key]) === bookingSpaceNumber(value);
     if (key === 'duration') return bookingDurationNumber(booking?.[key]) === bookingDurationNumber(value);
+    if (key === 'bufferMinutes') return Number(booking?.bufferMinutes ?? 0) === Number(value ?? 0);
     if (key === 'time') return String(booking?.[key] ?? '').trim() === String(value ?? '').trim();
     if (key === 'kind') {
       return normalizedKind(booking) === normalizedKind({
@@ -245,6 +262,7 @@ export function bookingMutationExpectedValues(booking) {
     kind: booking?.kind,
     time: booking?.time,
     duration: booking?.duration,
+    bufferMinutes: booking?.bufferMinutes,
     nickname: booking?.nickname,
     remark: booking?.remark,
     groupId: booking?.groupId,
@@ -343,6 +361,7 @@ export function buildCoachBookingPaste({ source, targetDate, id, createdAt = Dat
   const sourceOwner = normalizedOwner(source?.owner);
   const sourceNickname = typeof source?.nickname === 'string' ? source.nickname.trim() : '';
   const sourceDuration = bookingDurationNumber(source?.duration);
+  const sourceBuffer = bookingBufferMinutes(source);
   const sourceSpace = bookingSpaceNumber(source?.space);
   if (!source || typeof source !== 'object'
     || !isSafeBookingId(id)
@@ -353,6 +372,8 @@ export function buildCoachBookingPaste({ source, targetDate, id, createdAt = Dat
     || !isSchedulableBookingOwner(sourceOwner)
     || (sourceOwner === OTHER_OWNER && !sourceNickname)
     || sourceDuration == null
+    || sourceBuffer === null
+    || !isAllowedCoachDurationBuffer(sourceDuration, sourceBuffer)
     || normalizedKind(source) !== 'coach'
     || String(source.date ?? '').trim() === destinationDate) return null;
   const operator = String(createdBy ?? '').trim();
@@ -366,6 +387,7 @@ export function buildCoachBookingPaste({ source, targetDate, id, createdAt = Dat
     duration: sourceDuration,
     createdAt,
   };
+  if (sourceBuffer > 0) booking.bufferMinutes = sourceBuffer;
   if (sourceNickname) booking.nickname = sourceNickname;
   if (source.remark) booking.remark = String(source.remark);
   if (operator) booking.createdBy = operator;
@@ -409,6 +431,8 @@ export function copyBookingRecordsForDate(records, { date, space, makeId, create
     if (!isSchedulableBookingOwner(normalizedOwner(source.owner))) return null;
     const id = String(makeId() ?? '').trim();
     if (!isSafeBookingId(id)) return null;
+    const buffer = bookingBufferMinutes(source);
+    if (buffer === null || (kind === 'team' && buffer !== 0)) return null;
     const record = {
       id,
       date: destination,
@@ -420,6 +444,7 @@ export function copyBookingRecordsForDate(records, { date, space, makeId, create
       createdAt,
     };
     if (record.duration == null) return null;
+    if (buffer > 0) record.bufferMinutes = buffer;
     if (source.nickname) record.nickname = String(source.nickname);
     if (source.remark) record.remark = String(source.remark);
     if (source.groupId) record.groupId = String(source.groupId);

@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  resolveDropSlot,
+  resolveDropMinutes,
   resolveDropSpace,
 } from '../src/schedule-booking-rules.js';
 
 import {
   buildBookingMovePlan,
   buildBookingMovePlanFromRecords,
+  buildCoachBookingPaste,
   commitBookingMove,
   copyBookingRecordsForDate,
   relocateBookingRecords,
@@ -191,15 +192,25 @@ test('跨日搬移：團課整組搬到別的日期', async () => {
 });
 
 test('拖放幾何：表格外放開不得產生搬移目標', () => {
-  const box = { firstTop: 100, lastBottom: 200, rowHeight: 10 };
-  assert.equal(resolveDropSlot({ clientY: 99, slotCount: 10, ...box }), null, '表格上方放開 → 無目標');
-  assert.equal(resolveDropSlot({ clientY: 201, slotCount: 10, ...box }), null, '表格下方放開 → 無目標');
-  assert.equal(resolveDropSlot({ clientY: 100, slotCount: 10, ...box }), 0);
-  assert.equal(resolveDropSlot({ clientY: 155, slotCount: 10, ...box }), 5);
-  assert.equal(resolveDropSlot({ clientY: 200, slotCount: 10, ...box }), 9, '最底緣吸附最後一格');
-  assert.equal(resolveDropSlot({ clientY: 150, rowHeight: 0, firstTop: 100, lastBottom: 200, slotCount: 10 }), null);
-  assert.equal(resolveDropSlot({ clientY: Number.NaN, slotCount: 10, ...box }), null);
-  assert.equal(resolveDropSlot({}), null);
+  // rowHeight 10px＝15 分鐘；表格總高 100px＝150 分鐘
+  const box = { firstTop: 100, lastBottom: 200, rowHeight: 10, totalMinutes: 150 };
+  assert.equal(resolveDropMinutes({ clientY: 99, ...box }), null, '表格上方放開 → 無目標');
+  assert.equal(resolveDropMinutes({ clientY: 201, ...box }), null, '表格下方放開 → 無目標');
+  assert.equal(resolveDropMinutes({ clientY: 100, ...box }), 0);
+  assert.equal(resolveDropMinutes({ clientY: 155, ...box }), 85, '82.5 分鐘吸附至最近 5 分鐘格');
+  assert.equal(resolveDropMinutes({ clientY: 200, ...box }), 145, '最底緣吸附最後一個起點');
+  assert.equal(resolveDropMinutes({ clientY: 150, rowHeight: 0, firstTop: 100, lastBottom: 200, totalMinutes: 150 }), null);
+  assert.equal(resolveDropMinutes({ clientY: Number.NaN, ...box }), null);
+  assert.equal(resolveDropMinutes({}), null);
+});
+
+test('拖放幾何：以 5 分鐘吸附（教練課）；團課改用 15 分鐘吸附', () => {
+  const box = { firstTop: 100, lastBottom: 1300, rowHeight: 10, totalMinutes: 780 };
+  assert.equal(resolveDropMinutes({ clientY: 103, ...box }), 5, '4.5 分鐘靠近 5');
+  assert.equal(resolveDropMinutes({ clientY: 106, ...box }), 10, '9 分鐘靠近 10');
+  assert.equal(resolveDropMinutes({ clientY: 120, ...box, stepMinutes: 15 }), 30, '團課以 15 分鐘吸附');
+  assert.equal(resolveDropMinutes({ clientY: 128, ...box, stepMinutes: 15 }), 45, '42 分鐘靠近 45');
+  assert.equal(resolveDropMinutes({ clientY: 100, ...box }), 0, '頂端為 0');
 });
 
 test('拖放幾何：場地欄位以水平位置判定，左右外側不判定', () => {
@@ -323,4 +334,48 @@ test('跨日搬移：來源交易拋出例外時仍要強制補償刪除目標�
   assert.equal(result.rolledBack, true, '例外路徑也必須補償');
   assert.equal(db['2026-09-23']['new-1'], undefined, '不得留下重複');
   assert.equal(db['2026-09-22']['coach-1'].time, '10:00', '來源未被刪除');
+});
+
+test('複製貼上保留緩衝：60＋5 貼上仍為 60＋5；舊 75 不憑空產生欄位', () => {
+  const paste = buildCoachBookingPaste({
+    source: coach({ id: 'src', duration: 60, bufferMinutes: 5, time: '10:00' }),
+    targetDate: '2026-09-23',
+    id: 'paste-1',
+  });
+  assert.equal(paste.booking.duration, 60);
+  assert.equal(paste.booking.bufferMinutes, 5);
+
+  const legacy = buildCoachBookingPaste({
+    source: coach({ id: 'legacy', time: '10:00' }),
+    targetDate: '2026-09-23',
+    id: 'paste-2',
+  });
+  assert.equal(legacy.booking.duration, 75);
+  assert.equal('bufferMinutes' in legacy.booking, false);
+
+  const malformed = buildCoachBookingPaste({
+    source: { ...coach({ id: 'bad', duration: 60 }), bufferMinutes: 7 },
+    targetDate: '2026-09-23',
+    id: 'paste-3',
+  });
+  assert.equal(malformed, null, '緩衝白名單外的來源不得貼上');
+});
+
+test('跨日複製與同日搬移保留緩衝欄位；搬移計畫帶入目標日', () => {
+  const copied = copyBookingRecordsForDate([coach({ duration: 60, bufferMinutes: 10 })], {
+    date: '2026-09-24', space: 4, makeId: () => 'copy-1',
+  });
+  assert.equal(copied[0].bufferMinutes, 10);
+
+  const relocated = relocateBookingRecords([coach({ duration: 60, bufferMinutes: 10 })], { time: '11:05', space: 4 });
+  assert.equal(relocated[0].bufferMinutes, 10);
+  assert.equal(relocated[0].time, '11:05');
+
+  let n = 0;
+  const plan = buildBookingMovePlan({
+    originalRecords: [coach({ duration: 60, bufferMinutes: 10 })],
+    targetDate: '2026-09-23', targetSpace: 4, makeId: () => `new-${++n}`,
+  });
+  assert.equal(plan.records[0].bufferMinutes, 10);
+  assert.equal(plan.targetMutation.additions[0].bufferMinutes, 10);
 });

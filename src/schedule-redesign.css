@@ -134,14 +134,23 @@
 .rs-slot { height:30px; padding:0; cursor:pointer; position:relative; }
 .rs-slot.empty { background:#FCFBF8; }
 .rs-slot.empty:hover { background:var(--rs-sage-light); }
-.rs-slot.booked { color:var(--rs-white); font-weight:700; font-size:.78rem; line-height:1.2; }
-.rs-slot.booked.admin { background:var(--rs-admin); }
-.rs-slot.booked.coach { background:var(--rs-coach); }
-.rs-slot.booked.team { background:var(--rs-team); }
-.rs-slot.booked.high { background:#F28C28; }
-.rs-slot.booked.pan { background:var(--rs-pan); }
-.rs-slot.booked.shi { background:var(--rs-shi); }
-.rs-slot.booked:hover { filter:brightness(1.08); }
+.rs-slot.booked { z-index:1; color:var(--rs-white); font-weight:700; font-size:.78rem; line-height:1.2; --card-bg:var(--rs-coach); }
+.rs-slot.booked.admin { --card-bg:var(--rs-admin); }
+.rs-slot.booked.coach { --card-bg:var(--rs-coach); }
+.rs-slot.booked.team { --card-bg:var(--rs-team); }
+.rs-slot.booked.high { --card-bg:#F28C28; }
+.rs-slot.booked.pan { --card-bg:var(--rs-pan); }
+.rs-slot.booked.shi { --card-bg:var(--rs-shi); }
+.rs-slot.booked:hover .rs-card-main { filter:brightness(1.08); }
+/* 卡片：實色主體＋淺色緩衝尾巴；5 分鐘非整格起點以頂部留白呈現 */
+.rs-card { position:relative; height:100%; min-height:100%; display:flex; flex-direction:column; }
+.rs-card-spacer { flex:none; }
+.rs-card-main { position:relative; flex:none; overflow:hidden; padding:2px 4px; background:var(--card-bg); }
+.rs-card-tail { position:absolute; left:0; right:0; top:100%; background:var(--card-bg); opacity:.35; pointer-events:none; border-radius:0 0 4px 4px; }
+.rs-buffer-badge {
+  position:absolute; top:1px; right:2px; z-index:1; padding:0 4px; border-radius:999px;
+  background:rgba(255,255,255,.92); color:var(--rs-text); font-size:.58rem; font-weight:800; line-height:1.5; pointer-events:none;
+}
 .rs-slot small { display:block; font-size:.62rem; font-weight:500; opacity:.9; }
 .rs-slot .rs-remark { font-size:.65rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 .15rem; }
 .rs-slot .rs-creator { font-size:.6rem; font-weight:500; opacity:.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 .15rem; }
@@ -295,7 +304,7 @@
   color:#5A5A52;
   background-image: repeating-linear-gradient(45deg, rgba(90,90,82,.16) 0 5px, rgba(90,90,82,0) 5px 10px);
 }
-.rs-slot.booked.draft {
+.rs-slot.booked.draft .rs-card-main {
   background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.26) 0 7px, rgba(255,255,255,0) 7px 14px);
 }
 .rs-draft-btn {

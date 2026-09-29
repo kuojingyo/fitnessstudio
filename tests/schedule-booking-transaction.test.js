@@ -481,6 +481,7 @@ test('一般修改 CAS 快照忽略日期節點推導值與未知欄位', () => 
     kind: 'coach',
     time: '11:00',
     duration: 75,
+    bufferMinutes: undefined,
     nickname: undefined,
     remark: '原備註',
     groupId: undefined,
@@ -1438,4 +1439,110 @@ test('教練課與團課時長僅允許 60／75／90 分鐘，其餘時長一律
     assert.deepEqual(run(duration), { ok: false, value: {}, reason: 'invalid-booking-data' }, `${duration} 分鐘應拒絕`);
     assert.deepEqual(team(duration), { ok: false, value: {}, reason: 'invalid-booking-data' }, `團課 ${duration} 分鐘應拒絕`);
   }
+});
+
+test('緩衝佔用：60＋5 的 10:00 課擋住 11:00 起的新課，11:05 起可無縫連堂', () => {
+  const current = { a: regularBooking('a', 3, '史昕銓', '10:00', 60, { bufferMinutes: 5 }) };
+
+  const blocked = applyDateBookingMutation(current, {
+    additions: [regularBooking('b', 3, '高芷妍', '11:00', 60)],
+  });
+  assert.deepEqual(blocked, { ok: false, value: current, reason: 'space-conflict' }, '緩衝期間同場地仍視為佔用');
+
+  const allowed = applyDateBookingMutation(current, {
+    additions: [regularBooking('b', 3, '高芷妍', '11:05', 60, { bufferMinutes: 5 })],
+  });
+  assert.equal(allowed.ok, true, '緩衝結束後 11:05 即可接下一位');
+  assert.equal(allowed.value.b.time, '11:05');
+
+  const third = applyDateBookingMutation(allowed.value, {
+    additions: [regularBooking('c', 3, '高芷妍', '12:10', 60, { bufferMinutes: 5 })],
+  });
+  assert.equal(third.ok, true, '連三堂：12:10 可再接下一位');
+});
+
+test('緩衝期間教練視為忙碌：60＋5 課後 5 分鐘內不得在別的場地開課', () => {
+  const current = { a: regularBooking('a', 3, '史昕銓', '10:00', 60, { bufferMinutes: 5 }) };
+
+  const sameCoach = applyDateBookingMutation(current, {
+    additions: [regularBooking('b', 5, '史昕銓', '11:00', 60)],
+  });
+  assert.deepEqual(sameCoach, { ok: false, value: current, reason: 'owner-conflict' });
+
+  const at1105 = applyDateBookingMutation(current, {
+    additions: [regularBooking('c', 5, '史昕銓', '11:05', 60)],
+  });
+  assert.equal(at1105.ok, true, '11:05 之後同一教練可續課');
+});
+
+test('教練課允許 5 分鐘起點（11:05）；團課維持 15 分鐘（11:05 拒絕）', () => {
+  const coach = applyDateBookingMutation({}, {
+    additions: [regularBooking('coach-1105', 2, '史昕銓', '11:05', 60)],
+  });
+  assert.equal(coach.ok, true);
+  assert.equal(coach.value['coach-1105'].time, '11:05');
+
+  const team = applyDateBookingMutation({}, {
+    additions: [7, 8, 9].map(space => ({
+      id: `team-1105-${space}`, date: '2026-08-13', space,
+      owner: '史昕銓', kind: 'team', groupId: 'team-1105', time: '11:05', duration: 75,
+    })),
+  });
+  assert.deepEqual(team, { ok: false, value: {}, reason: 'invalid-booking-data' }, '團課不得使用非 15 分鐘時間');
+});
+
+test('緩衝白名單：60 可搭 0／5／10／15；75 與 90 不得帶緩衝；畸形值拒絕', () => {
+  const run = (id, duration, buffer) => applyDateBookingMutation({}, {
+    additions: [regularBooking(id, 2, '史昕銓', '10:00', duration, buffer === undefined ? {} : { bufferMinutes: buffer })],
+  });
+
+  assert.equal(run('b0', 60, 0).ok, true);
+  assert.equal(run('b5', 60, 5).ok, true);
+  assert.equal(run('b10', 60, 10).ok, true);
+  assert.equal(run('b15', 60, 15).ok, true);
+  assert.deepEqual(run('b20', 60, 20), { ok: false, value: {}, reason: 'invalid-booking-data' });
+  assert.deepEqual(run('bneg', 60, -5), { ok: false, value: {}, reason: 'invalid-booking-data' });
+  assert.deepEqual(run('bbad', 60, 'abc'), { ok: false, value: {}, reason: 'invalid-booking-data' });
+  assert.equal(run('b75', 75, undefined).ok, true, '舊 75 無緩衝仍可寫入');
+  assert.deepEqual(run('b75x', 75, 5), { ok: false, value: {}, reason: 'invalid-booking-data' }, '75 不得帶緩衝');
+  assert.equal(run('b90', 90, undefined).ok, true);
+  assert.deepEqual(run('b90x', 90, 5), { ok: false, value: {}, reason: 'invalid-booking-data' }, '90 不得帶緩衝');
+});
+
+test('既有 75 分鐘資料（無緩衝欄位）改備註仍可寫入，且不殘留緩衝欄位', () => {
+  const original = regularBooking('legacy', 2, '史昕銓', '10:00', 75, { remark: '原備註' });
+  const replacement = { ...original, remark: '新備註' };
+  const result = applyDateBookingMutation({ legacy: original }, {
+    removeIds: ['legacy'],
+    replacements: [replacement],
+    expectedRecords: [{ id: 'legacy', expected: bookingMutationExpectedValues(original) }],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.legacy.remark, '新備註');
+  assert.equal('bufferMinutes' in result.value.legacy, false);
+});
+
+test('編輯 60＋5 課程的時間會保留緩衝', () => {
+  const original = regularBooking('shift', 2, '史昕銓', '10:00', 60, { bufferMinutes: 5 });
+  const replacement = { ...original, time: '14:00' };
+  const result = applyDateBookingMutation({ shift: original }, {
+    removeIds: ['shift'],
+    replacements: [replacement],
+    expectedRecords: [{ id: 'shift', expected: bookingMutationExpectedValues(original) }],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.shift.time, '14:00');
+  assert.equal(result.value.shift.bufferMinutes, 5);
+});
+
+test('跨裝置併發：緩衝欄位被他人改動時，帶版本檢查的修改會中止', () => {
+  const original = regularBooking('race', 2, '史昕銓', '10:00', 60, { bufferMinutes: 5 });
+  const result = applyDateBookingMutation({
+    race: { ...original, bufferMinutes: 10 },
+  }, {
+    removeIds: ['race'],
+    replacements: [{ ...original, time: '14:00' }],
+    expectedRecords: [{ id: 'race', expected: bookingMutationExpectedValues(original) }],
+  });
+  assert.equal(result.reason, 'booking-changed');
 });
