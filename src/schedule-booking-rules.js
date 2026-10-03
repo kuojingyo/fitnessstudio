@@ -87,6 +87,15 @@ export function minuteToTime(minute) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
+// The day card displays occupied time, including any separate post-class buffer.
+export function bookingDisplayEndTime(booking) {
+  const start = timeToMinute(booking?.time);
+  const duration = Number(booking?.duration);
+  const buffer = Number(booking?.bufferMinutes ?? 0);
+  if (start == null || !Number.isFinite(duration) || !Number.isFinite(buffer)) return null;
+  return minuteToTime(start + duration + buffer);
+}
+
 // 晚間排課最晚只能到午夜（偏移 900 分鐘 = 24:00），含緩衝不得跨到隔天
 export const NIGHT_LIMIT_MINUTE = 15 * 60;
 
