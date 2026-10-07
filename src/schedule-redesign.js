@@ -1886,7 +1886,7 @@ function attachMonthDrag(main) {
       const cardPx = rowspan * SLOT_ROW_HEIGHT_PX;
       const spacerPx = Math.min((startMinute % SLOT_MINUTES) * PX_PER_MINUTE, cardPx);
       const mainPx = Math.max(0, Math.min(Number(booking.duration) * PX_PER_MINUTE, cardPx - spacerPx));
-      const tailHtml = buffer > 0 ? `<div class="rs-card-tail" style="height:${buffer * PX_PER_MINUTE}px"></div>` : '';
+      const tailHtml = buffer > 0 ? `<div class="rs-card-tail" style="height:${buffer * PX_PER_MINUTE}px;top:${spacerPx + mainPx}px"></div>` : '';
       const bufferBadge = buffer > 0 ? `<span class="rs-buffer-badge">＋${buffer}</span>` : '';
       html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}${buffer > 0 ? ' has-buffer' : ''}${startMinute % SLOT_MINUTES !== 0 ? ' off-grid' : ''}" rowspan="${rowspan}" data-booking-id="${escapeHtml(booking.id)}"><div class="rs-card"><div class="rs-card-spacer" style="height:${spacerPx}px"></div><div class="rs-card-main" style="height:${mainPx}px">${bufferBadge}<div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(bookingDisplayEndTime(booking))}</small>${remark}${creatorNoteHtml(booking)}</div>${tailHtml}</div></td>`;
     }
