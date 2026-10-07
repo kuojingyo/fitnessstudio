@@ -59,6 +59,17 @@ test('連堂資料：前堂緩衝不搶走下一堂的起點格', async () => {
   assert.equal(index.get(3)[12]?.id, 'second', '12:00 格屬新課主體');
 });
 
+test('格線延伸到午夜（60 格）時，21:45 的 90 分鐘課完整佔用 22:00 後的格', async () => {
+  const { buildDayBookingIndex } = await import('../src/schedule-day-index.js');
+  const index = buildDayBookingIndex([
+    { id: 'late', space: 4, time: '21:45', duration: 90 },
+  ], 60);
+  const space4 = index.get(4);
+  for (let slot = 51; slot <= 56; slot++) assert.equal(space4[slot]?.id, 'late', `slot=${slot} 應由 21:45 的課覆蓋`);
+  assert.equal(space4[57], undefined, '23:15 後的格未被佔用');
+  assert.equal(space4[50], undefined, '21:30 格未被佔用');
+});
+
 test('重疊資料時保留先出現的排課（與渲染第一筆一致）', async () => {
   const { buildDayBookingIndex } = await import('../src/schedule-day-index.js');
   const first = { id: 'first', space: 5, time: '10:00', duration: 60 };

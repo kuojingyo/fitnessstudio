@@ -77,6 +77,8 @@ const SLOT_MINUTES = 15;
 const SLOT_ROW_HEIGHT_PX = 30; // 與 .rs-day-table tbody tr 高度一致
 const PX_PER_MINUTE = SLOT_ROW_HEIGHT_PX / SLOT_MINUTES;
 const SLOTS_PER_DAY = (CLOSE_HOUR - OPEN_HOUR) * 60 / SLOT_MINUTES;
+const GRID_END_HOUR = 24; // 日檢視格線延伸到午夜（教練課可延後到午夜）
+const GRID_SLOTS_PER_DAY = (GRID_END_HOUR - OPEN_HOUR) * 60 / SLOT_MINUTES;
 const MIN_COACH_MINUTES = 60; // 教練課最小時長：推薦時間需容納得下一整堂課
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const FORCE_LOCAL_DEMO = import.meta.env.DEV && new URLSearchParams(window.location.search).get('demo') === '1';
@@ -1189,15 +1191,15 @@ function renderAdminTimeline(dayBookings) {
   const canAdd = canCreateAt(1);
   const slotStates = buildAdminSlotStates(adminBookings, SLOTS_PER_DAY);
   const addSlots = canAdd ? slotStates.filter(state => state.canAdd).map(state => {
-    const top = state.slot / SLOTS_PER_DAY * 100;
-    const height = 100 / SLOTS_PER_DAY;
+    const top = state.slot / GRID_SLOTS_PER_DAY * 100;
+    const height = 100 / GRID_SLOTS_PER_DAY;
     const mode = state.count ? 'rail' : 'empty';
     const label = `${slotToTime(state.slot)} 新增行政排班，目前 ${state.count} 位教練`;
     return `<button type="button" class="rs-admin-add-slot ${mode}" style="top:${top}%;height:${height}%" data-create-space="1" data-create-slot="${state.slot}" aria-label="${label}" title="${label}"><span>＋</span></button>`;
   }).join('') : '';
   const bookingBands = bands.map(band => {
-    const top = band.start / SLOTS_PER_DAY * 100;
-    const height = (band.end - band.start) / SLOTS_PER_DAY * 100;
+    const top = band.start / GRID_SLOTS_PER_DAY * 100;
+    const height = (band.end - band.start) / GRID_SLOTS_PER_DAY * 100;
     const reserveRail = canAdd && band.count === ADMIN_CAPACITY - 1;
     const segmentSlots = band.end - band.start;
     const densityClass = segmentSlots === 1 ? 'is-tiny' : (segmentSlots === 2 ? 'is-short' : '');
@@ -1218,7 +1220,7 @@ function renderAdminTimeline(dayBookings) {
     }).join('');
     return `<div class="rs-admin-band count-${band.count} ${densityClass}${reserveRail ? ' can-add' : ''}" style="top:${top}%;height:${height}%;grid-template-columns:repeat(${band.count},minmax(0,1fr))">${cards}</div>`;
   }).join('');
-  return `<div class="rs-admin-timeline" style="height:${SLOTS_PER_DAY * 30}px">${addSlots}${bookingBands}<div class="rs-admin-resize-preview" hidden aria-live="polite"></div></div>`;
+  return `<div class="rs-admin-timeline" style="height:${GRID_SLOTS_PER_DAY * 30}px">${addSlots}${bookingBands}<div class="rs-admin-resize-preview" hidden aria-live="polite"></div></div>`;
 }
 function adminRangeForBooking(booking) {
   const start = timeToSlot(booking.time);
@@ -1229,8 +1231,8 @@ function setAdminResizePreview(state) {
   const startTime = slotToTime(range.start);
   const endTimeValue = slotToTime(range.end);
   preview.hidden = false;
-  preview.style.top = `${range.start / SLOTS_PER_DAY * 100}%`;
-  preview.style.height = `${(range.end - range.start) / SLOTS_PER_DAY * 100}%`;
+  preview.style.top = `${range.start / GRID_SLOTS_PER_DAY * 100}%`;
+  preview.style.height = `${(range.end - range.start) / GRID_SLOTS_PER_DAY * 100}%`;
   preview.textContent = `${ownerLabel(booking)}\n${startTime}–${endTimeValue}`;
   preview.setAttribute('aria-label', `${ownerLabel(booking)} 行政時間預覽 ${startTime} 至 ${endTimeValue}`);
   const handleSlot = state.edge === 'start' ? range.start : range.end;
@@ -1855,18 +1857,18 @@ function attachMonthDrag(main) {
 }function renderDayView(main) {
   const dateKey = fmtDate(currentDate);
   const dayBookings = allBookingsForDate(dateKey);
-  const bookingIndex = buildDayBookingIndex(dayBookings, SLOTS_PER_DAY);
+  const bookingIndex = buildDayBookingIndex(dayBookings, GRID_SLOTS_PER_DAY);
   const dayClosed = isDateClosed(dateKey);
   let html = renderToolbar('全館日檢視', `${formatDateCN(currentDate)} · 所有人排課總表${dayClosed ? ' · 🔴 休館日' : ''}`,
     isBossManager() ? `<button type="button" data-toggle-closed-day="${dateKey}">${dayClosed ? '解除休館日' : '設定為休館日'}</button>` : '');
   if (dayClosed) html += '<div class="rs-permission-note rs-closed-banner">🔴 本日為休館日，無法新增或修改排課。</div>';
   html += `<div class="rs-permission-note">${isAdmin() ? `管理員：按住教練課／團課卡片可拖曳調整時間與場地（放開後需確認）；拖曳行政卡片上下邊框可調整時間；行政時段與教練課皆可右鍵複製，切換日期後按右鍵貼上。同一時間最多 ${ADMIN_CAPACITY} 位教練。` : '可為任何教練排課；行政時段僅管理員可編輯。教練課與團課可按住卡片拖曳調整時間與場地（放開後需確認），也可右鍵複製貼上。課程卡片末端顯示新增者。'}</div>`;
   html += '<div class="rs-table-wrap"><table class="rs-day-table"><thead><tr><th class="time">時間</th>' + SPACE_NAMES.map(name => `<th class="resource">${name}</th>`).join('') + '</tr></thead><tbody>';
-  for (let slot = 0; slot < SLOTS_PER_DAY; slot++) {
+  for (let slot = 0; slot < GRID_SLOTS_PER_DAY; slot++) {
     html += `<tr class="${slot % 4 === 0 ? 'hour' : ''}"><td class="time">${slotToTime(slot)}</td>`;
     for (let space = 1; space <= SPACES; space++) {
       if (isAdminSpace(space)) {
-        if (slot === 0) html += `<td class="rs-admin-column" rowspan="${SLOTS_PER_DAY}">${renderAdminTimeline(dayBookings)}</td>`;
+        if (slot === 0) html += `<td class="rs-admin-column" rowspan="${GRID_SLOTS_PER_DAY}">${renderAdminTimeline(dayBookings)}</td>`;
         continue;
       }
       const booking = bookingIndex.get(space)?.[slot];
@@ -1879,7 +1881,7 @@ function attachMonthDrag(main) {
       const display = `${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}`;
       const remark = booking.remark ? `<div class="rs-remark">📝 ${escapeHtml(booking.remark)}</div>` : '';
       const buffer = Number(booking.bufferMinutes ?? 0);
-      const rowspan = Math.max(1, dayBookingRowspan(booking.time, booking.duration, SLOTS_PER_DAY));
+      const rowspan = Math.max(1, dayBookingRowspan(booking.time, booking.duration, GRID_SLOTS_PER_DAY));
       const startMinute = timeToMinute(booking.time) ?? 0;
       const cardPx = rowspan * SLOT_ROW_HEIGHT_PX;
       const spacerPx = Math.min((startMinute % SLOT_MINUTES) * PX_PER_MINUTE, cardPx);

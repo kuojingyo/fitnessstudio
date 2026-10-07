@@ -105,7 +105,7 @@ test('教練課允許 09:00 起以 5 分鐘為單位；團課與行政維持 15 
   assert.equal(isBookingStartInDayRange('11:05'), false, '15 分鐘模式下 11:05 不合法');
 });
 
-test('日檢視 rowspan 以「課程本身」計算（不含緩衝）並截斷到 22:00', () => {
+test('日檢視 rowspan 以「課程本身」計算（不含緩衝），52 格參數仍會截斷到 22:00', () => {
   assert.equal(dayBookingRowspan('21:30', 90, 52), 2);
   assert.equal(dayBookingRowspan('21:45', 60, 52), 1);
   assert.equal(dayBookingRowspan('10:00', 75, 52), 5);
@@ -113,6 +113,14 @@ test('日檢視 rowspan 以「課程本身」計算（不含緩衝）並截斷�
   assert.equal(dayBookingRowspan('11:05', 60, 52), 5, '11:05–12:05 覆蓋 11:00–12:15 共 5 格');
   assert.equal(dayBookingRowspan('21:00', 60, 52), 4, '21:00 起 60 分鐘截到 22:00');
   assert.equal(dayBookingRowspan('21:45', 90, 52), 1, '超過 22:00 的部分截斷');
+});
+
+test('日檢視格線延伸到午夜（60 格）時，22:00 後的課程完整顯示不再截斷', () => {
+  assert.equal(dayBookingRowspan('21:10', 60, 60), 5, '21:10–22:10 覆蓋 21:00–22:15 共 5 格');
+  assert.equal(dayBookingRowspan('21:00', 60, 60), 4, '21:00–22:00 佔 4 格');
+  assert.equal(dayBookingRowspan('21:45', 60, 60), 4, '21:45–22:45 共 4 格');
+  assert.equal(dayBookingRowspan('21:45', 90, 60), 6, '21:45–23:15 共 6 格');
+  assert.equal(dayBookingRowspan('10:00', 60, 60), 4);
 });
 
 test('晚間排課最晚只能到午夜，不可跨到隔天（含緩衝）', () => {
