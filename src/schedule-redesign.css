@@ -8,6 +8,7 @@
   --rs-muted: #746A60;
   --rs-border: #D9D0C5;
   --rs-white: #FFFFFF;
+  --rs-time-shade: #EEEDEA;
   --rs-accent: #C97B4A;
   --rs-danger: #C75450;
   --rs-danger-light: #F5DCDC;
@@ -123,13 +124,19 @@
 .rs-stat-line:first-of-type { border-top:0; }
 .rs-stat-value { font-weight:800; }
 .rs-table-wrap { position:relative; width:100%; max-width:100%; min-width:0; overflow-x:auto; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain; max-height:calc(100vh - 165px); border:1px solid var(--rs-border); border-radius:9px; background:var(--rs-white); }
-.rs-day-table { table-layout:fixed; border-collapse:separate; border-spacing:0; width:100%; min-width:1050px; font-size:.76rem; }
+.rs-day-table { --rs-time-band-background:linear-gradient(to bottom,var(--rs-time-shade) 0 33.333333%,transparent 33.333333% 86.666667%,var(--rs-time-shade) 86.666667% 100%); table-layout:fixed; border-collapse:separate; border-spacing:0; width:100%; min-width:1050px; font-size:.76rem; }
 .rs-day-table th, .rs-day-table td { border-bottom:1px solid var(--rs-border); border-right:1px solid var(--rs-border); text-align:center; }
 .rs-day-table thead th { position:sticky; top:0; z-index:5; background:var(--rs-walnut); color:var(--rs-oatmeal); padding:.55rem .25rem; font-size:.72rem; }
 .rs-day-table th.time, .rs-day-table td.time { width:66px; min-width:66px; position:sticky; left:0; z-index:7; }
 .rs-day-table th.resource { width:116px; min-width:116px; }
 .rs-day-table td.time { background:var(--rs-white); color:var(--rs-muted); font-size:.68rem; font-weight:500; }
 .rs-day-table tr.hour td.time { color:var(--rs-text); font-weight:800; }
+/* 60 quarter-hour rows: 09:00-14:00 is rows 1-20; 22:00-24:00 is rows 53-60. */
+.rs-day-table tbody { background:var(--rs-time-band-background); }
+.rs-day-table tbody tr:nth-child(-n+20) > td.time,
+.rs-day-table tbody tr:nth-child(n+53) > td.time,
+.rs-day-table tbody tr:nth-child(-n+20) > .rs-slot.empty:not(:hover),
+.rs-day-table tbody tr:nth-child(n+53) > .rs-slot.empty:not(:hover) { background:var(--rs-time-shade); }
 .rs-day-table tbody tr { height:30px; }
 .rs-slot { height:30px; padding:0; cursor:pointer; position:relative; }
 .rs-slot.empty { background:#FCFBF8; }
@@ -157,7 +164,7 @@
 .rs-admin-column { position:relative; height:auto; padding:0; vertical-align:top; overflow:hidden; background:#FCFBF8; }
 .rs-admin-timeline {
   position:relative; width:100%; overflow:hidden;
-  background:repeating-linear-gradient(to bottom,#FCFBF8 0,#FCFBF8 29px,var(--rs-border) 29px,var(--rs-border) 30px);
+  background:repeating-linear-gradient(to bottom,transparent 0,transparent 29px,var(--rs-border) 29px,var(--rs-border) 30px),var(--rs-time-band-background),#FCFBF8;
 }
 .rs-admin-timeline::after {
   content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
