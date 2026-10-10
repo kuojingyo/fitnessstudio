@@ -1,4 +1,5 @@
 import './schedule-redesign.css';
+import { createLocalScheduleStorage } from './schedule-local-storage.js';
 import { buildDayBookingIndex } from './schedule-day-index.js';
 import {
   DEFAULT_COACH_DURATION_VALUE,
@@ -59,6 +60,8 @@ const INBOX_ROOT = 'scheduleV2Inbox';
 const INBOX_FALLBACK_KEY = 'relife_schedule_v2_inbox';
 const CLOSED_DAYS_ROOT = 'scheduleV2ClosedDays';
 const CLOSED_DAYS_FALLBACK_KEY = 'relife_schedule_v2_closed_days';
+const LOCAL_SCHEDULE_STATE_KEY = 'relife_schedule_v2_local_state';
+const localScheduleStorage = createLocalScheduleStorage(() => localStorage, LOCAL_SCHEDULE_STATE_KEY, [FALLBACK_KEY, CLOSED_DAYS_FALLBACK_KEY]);
 const PASSWORDS = { '老闆': '1564', '史昕銓': '1226', '高芷妍': 'kari812615', '洪琇捷': 'abc1228' };
 const USERS = {
   '老闆': { name: '老闆', role: 'admin' },
@@ -487,16 +490,33 @@ async function initDataLayer() {
   const scheduleRoot = $('#schedule-redesign');
   if (scheduleRoot) scheduleRoot.dataset.backend = window.RELIFE_SCHEDULE_BACKEND;
   if (useFallback) {
-    try { rawBookings = normalizeBookings(JSON.parse(localStorage.getItem(FALLBACK_KEY) || '{}')); }
-    catch { rawBookings = {}; }
+    try {
+      const localState = localScheduleStorage.getItems();
+      rawBookings = normalizeBookings(JSON.parse(localState[FALLBACK_KEY] || '{}'));
+      closedDays = normalizeClosedDays(JSON.parse(localState[CLOSED_DAYS_FALLBACK_KEY] || '{}'));
+    } catch (error) {
+      setDataError('⚠️ 本機排課資料讀取失敗，請重新整理。', error);
+      return;
+    }
     try { inboxByUser = normalizeInbox(JSON.parse(localStorage.getItem(INBOX_FALLBACK_KEY) || '{}')); }
     catch { inboxByUser = {}; }
-    try { closedDays = normalizeClosedDays(JSON.parse(localStorage.getItem(CLOSED_DAYS_FALLBACK_KEY) || '{}')); }
-    catch { closedDays = {}; }
     dataStatus = 'ready';
     dataErrorMessage = '';
     window.addEventListener('storage', event => {
-      if (event.key === FALLBACK_KEY) {
+      if (event.key === LOCAL_SCHEDULE_STATE_KEY) {
+        try {
+          const localState = localScheduleStorage.getItems();
+          const nextBookings = normalizeBookings(JSON.parse(localState[FALLBACK_KEY] || '{}'));
+          const nextClosedDays = normalizeClosedDays(JSON.parse(localState[CLOSED_DAYS_FALLBACK_KEY] || '{}'));
+          rawBookings = nextBookings;
+          closedDays = nextClosedDays;
+          renderRoot();
+          renderCurrentView();
+        } catch (error) {
+          setDataError('⚠️ 本機排課資料讀取失敗，請重新整理。', error);
+        }
+      }
+      if (event.key === FALLBACK_KEY && localStorage.getItem(LOCAL_SCHEDULE_STATE_KEY) === null) {
         try {
           rawBookings = normalizeBookings(JSON.parse(event.newValue || '{}'));
           renderCurrentView();
@@ -514,7 +534,7 @@ async function initDataLayer() {
           console.error('本機收件箱資料解析失敗：', error);
         }
       }
-      if (event.key === CLOSED_DAYS_FALLBACK_KEY) {
+      if (event.key === CLOSED_DAYS_FALLBACK_KEY && localStorage.getItem(LOCAL_SCHEDULE_STATE_KEY) === null) {
         try {
           closedDays = normalizeClosedDays(JSON.parse(event.newValue || '{}'));
           renderCurrentView();
@@ -738,7 +758,7 @@ async function persistMutationCore(dateKey, mutation) {
     if (result.value) nextBookings[dateKey] = Object.values(result.value);
     else delete nextBookings[dateKey];
     try {
-      localStorage.setItem(FALLBACK_KEY, JSON.stringify(nextBookings));
+      await localScheduleStorage.setItem(FALLBACK_KEY, JSON.stringify(nextBookings));
       rawBookings = nextBookings;
       return { ok: true, reason: null };
     } catch (error) {
@@ -783,7 +803,7 @@ async function persistBookingMove(sourceDateKey, targetDateKey, plan) {
     if (targetResult.value) nextBookings[targetDateKey] = Object.values(targetResult.value); else delete nextBookings[targetDateKey];
     if (sourceResult.value) nextBookings[sourceDateKey] = Object.values(sourceResult.value); else delete nextBookings[sourceDateKey];
     try {
-      localStorage.setItem(FALLBACK_KEY, JSON.stringify(nextBookings));
+      await localScheduleStorage.setItem(FALLBACK_KEY, JSON.stringify(nextBookings));
       rawBookings = nextBookings;
       return true;
     } catch (error) {
@@ -872,7 +892,7 @@ async function persistAdminResize(dateKey, patch) {
     if (result.value) nextBookings[dateKey] = Object.values(result.value);
     else delete nextBookings[dateKey];
     try {
-      localStorage.setItem(FALLBACK_KEY, JSON.stringify(nextBookings));
+      await localScheduleStorage.setItem(FALLBACK_KEY, JSON.stringify(nextBookings));
       rawBookings = nextBookings;
       return true;
     } catch (error) {
@@ -1148,6 +1168,7 @@ function statsForOwner(owner, year, month) {
   const last = new Date(year, month + 1, 0).getDate();
   for (let day = 1; day <= last; day++) {
     const key = `${year}-${pad(month + 1)}-${pad(day)}`;
+    if (isDateClosed(key)) continue;
     for (const booking of bookingsForDate(key)) {
       if (booking.draft === true) continue;
       if (booking.owner !== owner) continue;
@@ -2273,7 +2294,7 @@ async function toggleClosedDay(dateKey) {
       if (useFallback) {
         const next = { ...closedDays };
         delete next[dateKey];
-        localStorage.setItem(CLOSED_DAYS_FALLBACK_KEY, JSON.stringify(next));
+        await localScheduleStorage.setItem(CLOSED_DAYS_FALLBACK_KEY, JSON.stringify(next));
         closedDays = next;
       } else {
         await firebaseApi.remove(firebaseApi.ref(db, `${CLOSED_DAYS_ROOT}/${dateKey}`));
@@ -2288,18 +2309,27 @@ async function toggleClosedDay(dateKey) {
     }
     return;
   }
-  if (!window.confirm(`將 ${dateKey} 設定為休館日？\n設定後所有人當天都無法排課，已存在的排課也無法編輯。`)) return;
+  if (!window.confirm(`將 ${dateKey} 設定為休館日？\n將取消當天全部教練課、團課、行政時段與預排班，不計入統計。\n解除休館不會恢復已取消的排班。確定取消並休館？`)) return;
   mutationInProgress = true;
   try {
     const record = { closedBy: '老闆', createdAt: Date.now() };
     if (useFallback) {
       const next = { ...closedDays, [dateKey]: record };
-      localStorage.setItem(CLOSED_DAYS_FALLBACK_KEY, JSON.stringify(next));
+      const nextBookings = { ...rawBookings };
+      delete nextBookings[dateKey];
+      await localScheduleStorage.setItems({
+        [CLOSED_DAYS_FALLBACK_KEY]: JSON.stringify(next),
+        [FALLBACK_KEY]: JSON.stringify(nextBookings),
+      });
       closedDays = next;
+      rawBookings = nextBookings;
     } else {
-      await firebaseApi.set(firebaseApi.ref(db, `${CLOSED_DAYS_ROOT}/${dateKey}`), record);
+      await firebaseApi.update(firebaseApi.ref(db), {
+        [`${CLOSED_DAYS_ROOT}/${dateKey}`]: record,
+        [`${ROOT_PATH}/${dateKey}`]: null,
+      });
     }
-    showToast(`🔴 ${dateKey} 已設定為休館日`);
+    showToast(`🔴 ${dateKey} 已休館，當天全部課程與行政排班已取消`);
     renderCurrentView();
   } catch (error) {
     console.error('設定休館日失敗：', error);
