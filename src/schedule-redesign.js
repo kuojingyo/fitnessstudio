@@ -1902,11 +1902,14 @@ function attachMonthDrag(main) {
       const display = `${escapeHtml(ownerLabel(booking))}${booking.kind === 'team' ? '（團課）' : ''}`;
       const remark = booking.remark ? `<div class="rs-remark">📝 ${escapeHtml(booking.remark)}</div>` : '';
       const buffer = Number(booking.bufferMinutes ?? 0);
-      const rowspan = Math.max(1, dayBookingRowspan(booking.time, booking.duration, GRID_SLOTS_PER_DAY));
+      // Use the reserved cells, not an independently rounded end time:
+      // a following off-grid course may start inside the last rounded cell.
+      let rowspan = 1;
+      while (slot + rowspan < GRID_SLOTS_PER_DAY && bookingIndex.get(space)?.[slot + rowspan] === booking) rowspan++;
       const startMinute = timeToMinute(booking.time) ?? 0;
       const cardPx = rowspan * SLOT_ROW_HEIGHT_PX;
       const spacerPx = Math.min((startMinute % SLOT_MINUTES) * PX_PER_MINUTE, cardPx);
-      const mainPx = Math.max(0, Math.min(Number(booking.duration) * PX_PER_MINUTE, cardPx - spacerPx));
+      const mainPx = Math.max(0, Number(booking.duration) * PX_PER_MINUTE);
       const tailHtml = buffer > 0 ? `<div class="rs-card-tail" style="height:${buffer * PX_PER_MINUTE}px;top:${spacerPx + mainPx}px"></div>` : '';
       const bufferBadge = buffer > 0 ? `<span class="rs-buffer-badge">＋${buffer}</span>` : '';
       html += `<td class="rs-slot booked ${booking.kind === 'team' ? 'team' : (isAdminSpace(booking.space) ? 'admin' : 'coach')} ${ownerColorClass(booking.owner)}${buffer > 0 ? ' has-buffer' : ''}${startMinute % SLOT_MINUTES !== 0 ? ' off-grid' : ''}" rowspan="${rowspan}" data-booking-id="${escapeHtml(booking.id)}"><div class="rs-card"><div class="rs-card-spacer" style="height:${spacerPx}px"></div><div class="rs-card-main" style="height:${mainPx}px">${bufferBadge}<div>${display}</div><small>${escapeHtml(booking.time)}–${escapeHtml(bookingDisplayEndTime(booking))}</small>${remark}${creatorNoteHtml(booking)}</div>${tailHtml}</div></td>`;

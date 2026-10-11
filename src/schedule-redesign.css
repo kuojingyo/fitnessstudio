@@ -141,7 +141,7 @@
 .rs-slot { height:30px; padding:0; cursor:pointer; position:relative; }
 .rs-slot.empty { background:#FCFBF8; }
 .rs-slot.empty:hover { background:var(--rs-sage-light); }
-.rs-slot.booked { z-index:1; color:var(--rs-white); font-weight:700; font-size:.78rem; line-height:1.2; --card-bg:var(--rs-coach); }
+.rs-slot.booked { z-index:1; pointer-events:none; color:var(--rs-white); font-weight:700; font-size:.78rem; line-height:1.2; --card-bg:var(--rs-coach); }
 .rs-slot.booked.admin { --card-bg:var(--rs-admin); }
 .rs-slot.booked.coach { --card-bg:var(--rs-coach); }
 .rs-slot.booked.team { --card-bg:var(--rs-team); }
@@ -150,9 +150,9 @@
 .rs-slot.booked.shi { --card-bg:var(--rs-shi); }
 .rs-slot.booked:hover .rs-card-main { filter:brightness(1.08); }
 /* 卡片：實色主體＋淺色緩衝尾巴；5 分鐘非整格起點以頂部留白呈現 */
-.rs-card { position:relative; height:100%; min-height:100%; display:flex; flex-direction:column; }
+.rs-card { position:absolute; inset:0; height:100%; min-height:100%; display:flex; flex-direction:column; pointer-events:none; }
 .rs-card-spacer { flex:none; }
-.rs-card-main { position:relative; flex:none; overflow:hidden; padding:2px 4px; background:var(--card-bg); }
+.rs-card-main { position:relative; flex:none; overflow:hidden; padding:2px 4px; background:var(--card-bg); pointer-events:auto; }
 .rs-card-tail { position:absolute; left:0; right:0; top:100%; background:var(--card-bg); opacity:.35; pointer-events:none; border-radius:0 0 4px 4px; }
 .rs-buffer-badge {
   position:absolute; top:1px; right:2px; z-index:1; padding:0 4px; border-radius:999px;
