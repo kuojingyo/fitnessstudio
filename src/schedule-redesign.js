@@ -31,6 +31,7 @@ import {
 import {
   applyDateBookingMutation,
   bookingOwnerIdentity,
+  isOtherBookingOwner,
   bookingSpaceNumber,
   bookingDurationNumber,
   bookingMutationErrorMessage,
@@ -286,6 +287,7 @@ function conflictingBooking(list, space, candidate, excludeIds = [], kind) {
   }) || null;
 }
 function conflictingOwner(list, candidate, excludeIds = [], kind) {
+  if (isOtherBookingOwner(candidate?.owner)) return null;
   const ownerIdentity = bookingOwnerIdentity(candidate);
   if (!ownerIdentity) return null;
   return list.find(b => {

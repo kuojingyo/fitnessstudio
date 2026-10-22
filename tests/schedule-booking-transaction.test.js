@@ -1148,7 +1148,7 @@ test('行政貼上不得複製缺少暱稱的其他教練資料', () => {
   assert.equal(prepared, null);
 });
 
-test('其他教練以暱稱辨識同一人並只阻擋同暱稱重疊', () => {
+test('其他教練不論暱稱是否相同，行政時段時間重疊都放行', () => {
   const existing = {
     id: 'existing-other', date: '2026-08-15', space: 1, owner: '其他',
     nickname: '代班教練', kind: 'admin', time: '10:30', duration: 60,
@@ -1173,12 +1173,47 @@ test('其他教練以暱稱辨識同一人並只阻擋同暱稱重疊', () => {
     prepare('另一位教練', 'different-nickname').mutation,
   );
 
-  assert.deepEqual(sameNickname, {
-    ok: false,
-    value: current,
-    reason: 'owner-conflict',
-  });
+  assert.equal(sameNickname.ok, true);
+  assert.equal(sameNickname.value['same-nickname'].owner, '其他');
   assert.equal(differentNickname.ok, true);
+});
+
+test('其他可在同一時段建立多筆重疊教練課，具名教練仍被阻擋', () => {
+  const otherAtTen = (id, space, nickname, time = '10:00') => ({
+    id, date: '2026-08-15', space, owner: '其他', nickname, kind: 'coach', time, duration: 75,
+  });
+  const first = applyDateBookingMutation({}, {
+    additions: [otherAtTen('other-a', 2, '代班教練')],
+  });
+  assert.equal(first.ok, true);
+
+  const sameNickname = applyDateBookingMutation(first.value, {
+    additions: [otherAtTen('other-b', 3, '代班教練')],
+  });
+  assert.equal(sameNickname.ok, true, '同一暱稱的「其他」可重疊同一時段');
+
+  const overlappingDuration = applyDateBookingMutation(sameNickname.value, {
+    additions: [otherAtTen('other-c', 4, '另一位', '10:30')],
+  });
+  assert.equal(overlappingDuration.ok, true, '不同暱稱、時段部分重疊也放行');
+  assert.equal(Object.keys(overlappingDuration.value).length, 3);
+
+  const sameSpace = applyDateBookingMutation(overlappingDuration.value, {
+    additions: [otherAtTen('other-d', 2, '代班教練')],
+  });
+  assert.deepEqual(sameSpace, {
+    ok: false,
+    value: overlappingDuration.value,
+    reason: 'space-conflict',
+  });
+
+  const namedCurrent = {
+    coach: { id: 'coach', date: '2026-08-15', space: 2, owner: '洪琇捷', kind: 'coach', time: '10:00', duration: 75 },
+  };
+  const namedOverlap = applyDateBookingMutation(namedCurrent, {
+    additions: [{ id: 'coach-new', date: '2026-08-15', space: 5, owner: '洪琇捷', kind: 'coach', time: '10:00', duration: 75 }],
+  });
+  assert.deepEqual(namedOverlap, { ok: false, value: namedCurrent, reason: 'owner-conflict' });
 });
 
 test('transaction 拒絕可被 Number 強制轉成場地的畸形值', () => {
