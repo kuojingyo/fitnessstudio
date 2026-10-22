@@ -224,6 +224,11 @@ export function bookingOwnerIdentity(booking) {
   return nickname ? `other:${nickname}` : '';
 }
 
+// 「其他」是代班／場租集合，不是單一教練，不套用「同一人不可時間重疊」。
+export function isOtherBookingOwner(owner) {
+  return normalizedOwner(owner) === OTHER_OWNER;
+}
+
 const PAST_BOOKING_EDITORS = new Set(['老闆', '史昕銓']);
 
 export function canModifyPastBooking(userName, dateKey, todayKey) {
@@ -515,6 +520,7 @@ export function bookingKindForOverlap(booking) {
 
 function ownerHasConflict(dateNode, targetKey) {
   const target = dateNode[targetKey];
+  if (isOtherBookingOwner(target?.owner)) return false;
   const targetOwnerIdentity = bookingOwnerIdentity(target);
   if (!target || !targetOwnerIdentity) return false;
   const targetRange = bookingRangeMinutes(target);
